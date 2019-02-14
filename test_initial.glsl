@@ -3,6 +3,7 @@ uniform float time;
 uniform vec2 resolution;
 uniform vec2 rand;
 uniform vec2 mouse;
+uniform sampler2D sony;
 uniform sampler2D backbuffer;
 vec2 p; //relative position
 vec3 c; //color
@@ -19,7 +20,7 @@ uniform float m5;
 uniform float m6;
 uniform float m7;
 
-// counter 0 to 1 
+// counter 0 to 1
 float cnt(in int m)
 {
 	float divider = 1000.0 / float(m)*10.0;
@@ -30,7 +31,7 @@ float cnt(in int m)
 vec3 liney(in float yp, in float width, in vec3 col)
 {
         return ((p.y <= yp+width/2.0) && (p.y >= yp-width/2.0)) ? col : vec3(0.0);
-	
+
 }
 
 // square
@@ -74,6 +75,9 @@ c+=sqr(0.575,.5,m4, cw);
 c+=sqr(0.7,.5,m5, cr);
 c+=sqr(0.825,.5,m6, cw);
 c+=sqr(0.95,.5,m7, cr);
+
+// CHECK SONY
+c += texture2D(sony, mod(2.*p,1.)).xyz*0.9;
 
 // CHECK BACKBUFFER
 p = vec2(p.x,1.-p.y);
