@@ -1,8 +1,6 @@
 // do you own lightning
 // write down the lightning principle (fake phong)
 
-
-
 uniform float time;
 uniform vec2 resolution;
 uniform vec4 mouse;
