@@ -155,6 +155,8 @@ vec3 oscy(in float yp, in float w, in float sinm, in float sinm2, in vec3 c)
 
 
 /////////////////////////////////////////// TEXTURES AND PAINTING
+// TODO - make this a bit more accessible
+//
 vec3 feedb_sqr(in float xpos, in float ypos, in float xsiz, in float ysiz, in float bsiz, in float blnd, in float brg, in vec3 c)
 {
 	vec2 mm = (p.x > xpos-xsiz/2.) && (p.x < xpos+xsiz/2.) && (p.y > ypos-ysiz/2.) && (p.y < ypos+ysiz/2.) ? (vec2(p.x,p.y)-0.5)*bsiz+0.5 : vec2(0.);
@@ -272,14 +274,14 @@ float sinusoidBumps(in vec3 p){
 // The whole scene
 float scene(in vec3 p, float type, float distort) {
 	if (type == 0.) {
-	return box(p, vec3(0.2,0.2,0.2)) + distort*sinusoidBumps(p);
+		return box(p, vec3(0.2,0.2,0.2)) + distort*sinusoidBumps(p);
 	}
 	if (type == 1.) {
-	return sphere(p, vec3(0.,0.,0.), 0.3) + distort*sinusoidBumps(p);
-        }
+		return sphere(p, vec3(0.,0.,0.), 0.3) + distort*sinusoidBumps(p);
+    }
 	if (type == 2.) {
-	return hex(p, vec2(0.2,0.4)) + distort*sinusoidBumps(p);
-        }
+		return hex(p, vec2(0.2,0.4)) + distort*sinusoidBumps(p);
+    }
 }
 
 // Gets the surface normal for p
@@ -312,13 +314,13 @@ float rayMarching( vec3 origin, vec3 dir, float start, float end, float type, fl
 }
 
 // lighting
-vec3 lights(float type, float rotation, float distort, float colormod, float aspect_in) {
+vec3 lights(float type, vec3 cam_rot, float rotation, float distort, float colormod, float aspect_in) {
         vec2 aspect = vec2(asp, aspect_in*70.);
         vec2 screenCoords = (2.0*gl_FragCoord.xy/resolution.xy - 1.0)*aspect*.5;
         vec3 lookAt = vec3(0.,0.,0.);
         //rotate by hand
         mx11*=10.;
-        vec3 camPos = vec3(sin(mx11), sin(mx11), cos(mx11));
+        vec3 camPos = vec3(sin(cam_rot.x), sin(cam_rot.y), cos(cam_rot.z));
         //static
         //vec3 camPos = vec3(0., 0., -1.);
         vec3 forward = normalize(lookAt-camPos);
@@ -327,7 +329,7 @@ vec3 lights(float type, float rotation, float distort, float colormod, float asp
         float FOV = .9;
         vec3 ro = camPos;
         vec3 rd = normalize(forward + FOV*screenCoords.x*right + FOV*screenCoords.y*up);
-        vec3 bgcolor = vec3(1.,0.97,0.92)*0.15;
+        vec3 bgcolor = vec3(1.,0.97,0.92);
         float dist = rayMarching(ro, rd, clipNear, clipFar, type, rotation, distort );
         vec3 BACK = vec3(1.1);
         if ( dist >= clipFar ) {
@@ -340,7 +342,7 @@ vec3 lights(float type, float rotation, float distort, float colormod, float asp
         vec3 sp = ro + rd*dist*colormod*10.;
         vec3 surfNormal = getNormal(sp*sp, type, rotation, distort);
         //vec3 lp = vec3(1.5*sin(time*.5), 0.75+0.25*cos(time*0.5), -1.0);
-        vec3 lp = vec3(noise2f(p),noise2f(p*p),noise2f(p*p*p)*m0);
+        vec3 lp = vec3(noise2f(p),noise2f(p*p),noise2f(p*p*p));
         vec3 ld = lp-sp;
         vec3 lcolor = vec3(1.,1.,1.);
         float len = length( ld );
@@ -359,7 +361,114 @@ vec3 lights(float type, float rotation, float distort, float colormod, float asp
         specular = pow(specular, specularPower);
         sceneColor = vec3(0.);
         sceneColor += (objColor*(diffuse*0.8+ambient)+specular*0.5)*lcolor*lightAtten;
-	return sceneColor;
+		return sceneColor;
 }
+
+// The whole scene
+// lets clean all that funky yellow-red shit and make this ASAP - As Simple As Possible
+// - no distortion needed for now
+//
+//
+//
+float scene_dev(in vec3 p, float type) {
+	if (type == 0.) {
+		return box(p, vec3(0.2,0.2,0.2));
+	}
+	if (type == 1.) {
+		return sphere(p, vec3(0.,0.,0.), 0.3);
+    }
+	if (type == 2.) {
+		return hex(p, vec2(0.2,0.4));
+    }
+}
+
+
+
+// Gets the surface normal for p
+// lets clean all that funky yellow-red shit and make this ASAP - As Simple As Possible
+// - no distortion needed for now
+//
+//
+//
+vec3 getNormal_dev(in vec3 original_p, float type, float rotation) {
+	mat4 rotmat = rmat(vec3(0.,1.,0.), radians(rotation));
+        vec3 p = rot(original_p, rotmat);
+        return normalize(vec3(
+                scene_dev(vec3(p.x+eps,p.y,p.z),type)-scene_dev(vec3(p.x-eps,p.y,p.z), type),
+                scene_dev(vec3(p.x,p.y+eps,p.z),type)-scene_dev(vec3(p.x,p.y-eps,p.z), type),
+                scene_dev(vec3(p.x,p.y,p.z+eps),type)-scene_dev(vec3(p.x,p.y,p.z-eps), type)
+        ));
+}
+
+// Raymarches
+// lets clean all that funky yellow-red shit and make this ASAP - As Simple As Possible
+// - no distortion needed for now
+//
+//
+//
+float rayMarching_dev( vec3 origin, vec3 dir, float start, float end, float type, float rotation) {
+        float sceneDist = 1e4;
+        float rayDepth = start;
+        for ( int i = 0; i < maxIterations; i++ ) {
+		mat4 rotmat = rmat(vec3(0.,1.,0.), radians(rotation));
+  		vec3 rotated_p = rot(origin + dir * rayDepth, rotmat);
+                sceneDist = scene_dev( rotated_p, type );
+                if (( sceneDist < stopThreshold ) || (rayDepth >= end)) {
+                        break;
+                }
+                rayDepth += sceneDist * stepScale;
+        }
+        if ( sceneDist >= stopThreshold ) rayDepth = end;
+        else rayDepth += sceneDist;
+        return rayDepth;
+}
+
+
+// lighting
+// lets clean all that funky yellow-red shit and make this ASAP - As Simple As Possible
+// - no distortion needed for now
+//
+//
+//
+vec3 lights_dev(float type, vec3 cam_rot, float rotation, vec3 inColor) {
+        vec2 screenCoords = (2.0*gl_FragCoord.xy/resolution.xy - 1.0)*vec2(asp, 1.);
+        vec3 lookAt = vec3(0.,0.,0.);
+        vec3 camPos = vec3(sin(cam_rot.x), sin(cam_rot.y), cos(cam_rot.z));
+        vec3 forward = normalize(lookAt-camPos);
+        vec3 right = normalize(vec3(forward.z, 0., -forward.x ));
+        vec3 up = normalize(cross(forward,right));
+        float FOV = 0.9; // this kinda zooms in/out
+        vec3 ro = camPos;
+        vec3 rd = normalize(forward + FOV*screenCoords.x*right + FOV*screenCoords.y*up);
+        float dist = rayMarching_dev(ro, rd, clipNear, clipFar, type, rotation );
+        vec3 sp = ro + rd*dist;
+        vec3 surfNormal = getNormal_dev(sp*sp, type, rotation);
+        //vec3 lp = vec3(1.5*sin(time*.5), 0.75+0.25*cos(time*0.5), -1.0);
+        vec3 lp = vec3(noise2f(p),noise2f(p*p),noise2f(p*p*p));
+        vec3 ld = lp-sp;
+        vec3 lcolor = vec3(1.,1.,1.);
+        float len = length( ld );
+        ld /= len;
+        float lightAtten = min( 1.0 / ( 0.25*len*len ), 1.0 ); // Keeps things between 0 and 1.
+        vec3 ref = reflect(-ld, surfNormal);
+
+		vec3 backgroundColor = inColor;
+        vec3 objColor = vec3(1., 0., 0.);
+        float ambient = 1.3;
+        float specularPower = 100.0;
+        float diffuse = max( 0.0, dot(surfNormal, ld) );
+        diffuse = pow(diffuse, 1000.);
+        float specular = max( 0.0, dot( ref, normalize(camPos-sp)) );
+        specular = pow(specular, specularPower);
+		vec3 sceneColor = vec3(0.);
+        sceneColor += (objColor*(diffuse*0.8+ambient)+specular*0.5)*lcolor*lightAtten-inColor;
+
+		if ( dist >= clipFar ) {
+			return backgroundColor;
+		} else {
+			return sceneColor;
+		}
+}
+
 
 ////////////////////////////////////////////// PRIMITIVES END
