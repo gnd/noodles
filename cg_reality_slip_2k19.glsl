@@ -282,142 +282,164 @@ if (RAYY == 1.0) {
 
 }
 
-
-
 // BW gradient
 float BW = 0.0;
 if (BW == 1.0) {
-//vec4 p_ray = vec4(gl_FragCoord.xy,0.,1.)/resolution.xyxy-vec4(m10);
-// adjusting for 1440x900
-vec4 p_ray = (vec4(p,p)-m10)*10.; // set size here
-vec4 d=p_ray;
-vec4 t;
-p_ray.z += time;
-for(float i=4.8; i>0.; i-=.1)
-{
-  // this loops between values
-  //t = abs(mod(p_ray*cnt(1000)*5., 0.5)-.25);
-  // this runs
-  //t = abs(mod(p_ray*time, 0.5)-.25);
-  // this bounces
-  t = abs(mod(p_ray*sin(cnt(500)*3.14)*.1, 0.5)-.25);
-  //t = abs(mod(p_ray*4., 0.5) -.25);
-  // forms working
-  float x = max(t.x*2., length(t.yy)*2.);
-  // new forms - dots
-  //float x = max(t.y*2., length(t.xy)*2.);
-  c += vec3(0.,noise2f( vec2( tan(i),i ) )*m0*100.,0.);
-  cf = vec3(noise2f( vec2( tan(i),i ) )*m0*100.);
-  if(x<.15) break;
-  // normal
-  //p_ray -= d*x;
-  // new forms - dost
-  p_ray -= d*x*x*x*x;
-}
+	//vec4 p_ray = vec4(gl_FragCoord.xy,0.,1.)/resolution.xyxy-vec4(m10);
+	// adjusting for 1440x900
+	vec4 p_ray = (vec4(p,p)-m10)*10.; // set size here
+	vec4 d=p_ray;
+	vec4 t;
+	p_ray.z += time;
+	for(float i=4.8; i>0.; i-=.1)
+	{
+		  // this loops between values
+		  //t = abs(mod(p_ray*cnt(1000)*5., 0.5)-.25);
+		  // this runs
+		  //t = abs(mod(p_ray*time, 0.5)-.25);
+		  // this bounces
+		  t = abs(mod(p_ray*sin(cnt(500)*3.14)*.1, 0.5)-.25);
+		  //t = abs(mod(p_ray*4., 0.5) -.25);
+		  // forms working
+		  float x = max(t.x*2., length(t.yy)*2.);
+		  // new forms - dots
+		  //float x = max(t.y*2., length(t.xy)*2.);
+		  c += vec3(0.,noise2f( vec2( tan(i),i ) )*m0*100.,0.);
+		  cf = vec3(noise2f( vec2( tan(i),i ) )*m0*100.);
+		  if(x<.15) break;
+		  // normal
+		  //p_ray -= d*x;
+		  // new forms - dost
+		  p_ray -= d*x*x*x*x;
+	}
 }
 
 // RAY2
 float RAY = .0;
-if (RAY == 1.0) {
-vec4 p_ray = (vec4(p,p)-m10)*1.;
-vec4 d=p_ray;
-vec4 t;
-p_ray.z += time;
-for(float i=4.8; i>0.; i-=.1)
+if (RAY == 1.0)
 {
-  // this loops between values
-  //t = abs(mod(p_ray*cnt(1000)*5., 0.5)-.25);
-  // this runs
-  //t = abs(mod(p_ray*time, 0.5)-.25);
-  // this bounces
-  //t = abs(mod(p_ray*a_sin(time/2.)*5., 0.5)-.25);
-  t = abs(mod(p_ray*0.5+time/m1*100., 0.5) -.25);
-  // forms working
-  float x = max(t.y*2., length(t.xx)*2.);
-  // new forms - dots
-  //float x = max(t.y*2., length(t.xy)*2.);
-  c += vec3(noise2f(vec2(time/100.,i))*.6, 0.,0.)*0.2;
-  if(x<.15) break;
-  // normal
-  //p_ray -= d*x;
-  // new forms - dost
-  p_ray -= d*x*x;
+	vec4 p_ray = (vec4(p,p)-m10)*1.;
+	vec4 d=p_ray;
+	vec4 t;
+	p_ray.z += time;
+	for(float i=4.8; i>0.; i-=.1)
+	{
+		  // this loops between values
+		  //t = abs(mod(p_ray*cnt(1000)*5., 0.5)-.25);
+		  // this runs
+		  //t = abs(mod(p_ray*time, 0.5)-.25);
+		  // this bounces
+		  //t = abs(mod(p_ray*a_sin(time/2.)*5., 0.5)-.25);
+		  t = abs(mod(p_ray*0.5+time/m1*100., 0.5) -.25);
+		  // forms working
+		  float x = max(t.y*2., length(t.xx)*2.);
+		  // new forms - dots
+		  //float x = max(t.y*2., length(t.xy)*2.);
+		  c += vec3(noise2f(vec2(time/100.,i))*.6, 0.,0.)*0.2;
+		  if(x<.15) break;
+		  // normal
+		  //p_ray -= d*x;
+		  // new forms - dost
+		  p_ray -= d*x*x;
+	}
 }
-}
-
-
-
 
 // tapeta1
 float TAP = 0.0;
 if (TAP == 1.0) {
-px = p.x + 0.5;
-py = p.y + 0.3;
-spd = 0.1;
-spd = m1/100.;
-vec2 va = vec2( px*time*spd, tan(py*2.) );
-ca = vec3( noise2f(va*va*va), noise2f(va*va), noise2f(va*va) );
-c-=liney(0.5,m1*1.3, ca*3.)*m2;
+	px = p.x + 0.5;
+	py = p.y + 0.3;
+	spd = 0.1;
+	spd = m1/100.;
+	vec2 va = vec2( px*time*spd, tan(py*2.) );
+	ca = vec3( noise2f(va*va*va), noise2f(va*va), noise2f(va*va) );
+	c-=liney(0.5,m1*1.3, ca*3.)*m2;
 }
 
 // tapeta2
 float TAPP = 0.0;
 float iter = 20.;
-if (TAPP == 1.0) {
-for(float i=0.; i<iter; i+=1.)
+if (TAPP == 1.0)
 {
-px = p.x + 0.5;
-py = p.y + 0.3;
-spd = 0.008*i;
-//spd = m1;
-vec2 va = vec2( sin(px)*time*spd*m1, floor(tan(py*time*spd)) );
-ca = vec3( noise2f(va*va), noise2f(va*va), noise2f(va*va) );
-c+=liney(i/iter,1./iter, ca*3.)*m0;
-}
+	for(float i=0.; i<iter; i+=1.)
+	{
+		px = p.x + 0.5;
+		py = p.y + 0.3;
+		spd = 0.008*i;
+		//spd = m1;
+		vec2 va = vec2( sin(px)*time*spd*m1, floor(tan(py*time*spd)) );
+		ca = vec3( noise2f(va*va), noise2f(va*va), noise2f(va*va) );
+		c+=liney(i/iter,1./iter, ca*3.)*m0;
+	}
 }
 cc = c;
 //c += crc(0.5,0.5,0.3+cnt(80)*m3*0.3,cc)*0.8;
 
-// osces
-float OSC = 0.;
-if (OSC == 1.) {
-	float oscmult = 10.;
-	for (float i=0.1; i <= oscmult; i+=1.) {
-		c+=oscxt(i*0.1,0.1,m1,m2,cr)*m1;
+// OSCES I @ mx5*
+//
+float OSC = mx52;
+if (OSC == 1.)
+{
+	float oscmult = mx56*20.;
+	float step = 1./oscmult;
+	float alpha = mx51;
+	for (float i=step; i <= oscmult; i+=step)
+	{
+		c+=oscxt(i*step,step,m1,m2,cr)*alpha;
 	}
 }
-// osces II
-float OSCC = 0.;
-if (OSCC == 1.) {
-	c+=oscx(cnt(100),0.01,m1,m2,ca)*m1*10.;
-}
-//c+=oscxt(0.5,0.03,m1,m2,ca);
 
-// crcs
-for (float i = 0.; i < 0.; i+=.1) {
-	c+=crcr(.5,0.5,.2+i,m1/60.,cw)*.4;
-}
-
-// BACKBUFFER
-float BCK = 1.;
-if (BCK == 1.) {
-	ppp = ppp.yx;
-	float xs = mx11;
-	float ys = mx12;
-	float s1 = m1;
-	float s2 = m2;
-	//ys = 0.5;
-	//vec3 ccc = texture2D(backbuffer, vec2(ppp.x,1.0-ppp.y)*1.01).rgb;
-	vec3 ccc = texture2D(backbuffer,((ppp-s2)*(1.-s1)+0.5)*m11).rgb;
-	//vec3 ccc = vec3(texture2D(backbuffer,(ppp-s2)*(1.-s1)+0.5).r,0.,0.) * 10.;
-	c*=floor(mix(ccc,c,0.1)*2.);
+// OSCES II @ mx6*
+// vertical sinusoids traveling at *period
+float OSCC = mx62;
+if (OSCC == 1.)
+{
+	int period = (int)(mx66*10000.);
+	float weight = mx65*10.;
+	float alpha = mx61*100.;
+	c+=oscx(cnt(period),weight,m1,m2,ca)*m1*alpha;
 }
 
-c*=cnt(50);
+// BACKBUFFER1 @ mx7*
+// not really a feedback, this is a treshold filter
+// it needs something happening on c (like mx6* for example)
+float BCKK = mx72;
+if (BCKK == 1.)
+{
+	ppp = ppp.xy;
+	float xs = mx76;
+	float ys = mx75;
+	float size = mx74;
+	float treshold = mx71;
+	vec3 ccc = texture2D(backbuffer,((ppp-xs)*(1.-ys)+0.5)*size).rgb;
+	c*=floor(mix(ccc,c,0.1)*treshold*2.);
+}
+
+// BACKBUFFER2 @ mx8*
+// this is like the classical feedback
+// also its somehow flipped like (1-x,1-y) (2 lazy 2 deal w rn)
+// TODO fix:
+//		-- the weird flip on ppp
+//		-- when changing size dont change position
+float BCK = mx82;
+if (BCK == 1.)
+{
+	ppp = ppp.xy;
+	float xs = mx86-.5;
+	float ys = (mx85-.5)*asp;
+	float size = (1.-mx84)+.5;
+	float alpha = mx81;
+	float invert = mx83;
+	vec3 ccc = texture2D(backbuffer, (ppp-vec2(xs,ys))*size).rgb;
+	ccc = vec3(abs(invert-ccc.r), abs(invert-ccc.g), abs(invert-ccc.b));
+	ccc *= alpha;
+	c+=ccc;
+}
+
+// this is like the final strobe
+//c*=cnt(50);
 
 // DRAW
 gl_FragColor = vec4(c, 1.0);
-
-
 
 }

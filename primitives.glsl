@@ -1,4 +1,6 @@
 /////////////////////////////////////// PRIMITIVES START
+/// version 19/02/2019
+
 vec2 p = vec2(0.);
 float asp = 1.;
 /////////////////////////////////////// SIMPLE FUNCTIONS
