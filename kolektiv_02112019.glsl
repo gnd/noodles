@@ -13,7 +13,7 @@ float mw = 0.001; //minimal width
 #define PI 3.1415926535898
 const float eps = 0.005;
 const int maxIterations = 128;
-const float stepScale = 0.2; //lower values = more precision
+const float stepScale = 0.3; //lower values = more precision, but also weird edge behavior
 const float stopThreshold = 0.005;
 const float clipNear = 0.0;
 const float clipFar = 4.0;
@@ -41,7 +41,7 @@ vec3 ca,cc,cd,ce,cf,cx;
 uniform float m8,m9,m10;
 uniform float m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30;
 uniform float m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48,m49,m50;
-uniform float m51,m52,m53,m54,m55,m56,m57,m58,m59;
+uniform float m51,m52,m53,m54,m55,m56,m57,m58,m59,m60,m61,m62,m63;
 float mx11 = m8/127.;
 float mx12 = m9/127.;
 float mx13 = m10/127.;
@@ -90,7 +90,7 @@ float mx83 = m52/127.;
 float mx84 = m53/127.;
 float mx85 = m54/127.;
 float mx86 = m55/127.;
-float mx91 = m56/127.;
+float mx91 = m62/127.; // plz review pd code why we have 91 at 62
 float mx92 = m57/127.;
 float mx93 = m58/127.;
 float mx94 = m59/127.;
@@ -273,6 +273,14 @@ vec3 feedb_crc(in float xpos, in float ypos, in float siz, in float bsiz, in vec
       return c;
 }
 
+/////// deformators
+// sinbump2
+float sinbumps2(in vec3 p, float distort){
+    float frq = 100.;
+	float force = PI * distort;
+	distort *= 0.05;
+    return distort * cos(p.x/frq + force)*atan(p.y*frq + force)*tan(p.z*frq - time*100.31);
+}
 
 /////////////////////////////////////////// GEOMETRIC MODIFIERS
 mat4 inverse(mat4 m) {
@@ -353,9 +361,9 @@ float smin( float a, float b, float k )
     return min( a, b ) - h*h*h*k*(1.0/6.0);
 }
 
-vec3 twist(in vec3 p)
+vec3 twist(in vec3 p, float r)
 {
-    float k = mx24*100.; // or some other amount
+    float k = r*100.; // or some other amount
     float c = cos(k*p.y);
     float s = sin(k*p.y);
     mat2  m = mat2(c,-s,s,c);
@@ -388,7 +396,8 @@ float sphere(in vec3 p, in vec3 centerPos, float radius) {
 
 // Box field
 float box( vec3 p, vec3 b ) {
-	return length(max(abs(p)-b,0.0));
+	vec3 q = abs(p) - b;
+  	return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
 }
 
 float hex( vec3 p, vec2 h )
@@ -399,7 +408,7 @@ float hex( vec3 p, vec2 h )
 
 // Sinusoid bumps
 float sinusoidBumps(in vec3 p){
-        float frq = 10.;
+        float frq = 100.*mx41+m2;
         return 3.*sin(p.x*frq+time*0.57)*atan(p.y*frq+time*2.17)*sin(p.z*frq-time*1.31);
 }
 
@@ -465,11 +474,7 @@ vec3 lights(float type, vec3 cam_rot, float rotation, float distort, float color
         float dist = rayMarching(ro, rd, clipNear, clipFar, type, rotation, distort );
         vec3 BACK = vec3(1.1);
         if ( dist >= clipFar ) {
-            //c += vec3(bgcolor);
-            //gl_FragColor = vec4(bgcolor, .3);
-            //BACK = vec3(bgcolor);
             c=ck;
-            //return;
         }
         vec3 sp = ro + rd*dist*colormod*10.;
         vec3 surfNormal = getNormal(sp*sp, type, rotation, distort);
@@ -494,6 +499,27 @@ vec3 lights(float type, vec3 cam_rot, float rotation, float distort, float color
         sceneColor = vec3(0.);
         sceneColor += (objColor*(diffuse*0.8+ambient)+specular*0.5)*lcolor*lightAtten;
 		return sceneColor;
+}
+
+float scene_kolektiv(in vec3 p, float type) {
+	// mx16-13 = camPos, mx11 = specular
+	// mx26 sphere distance, mx25-24 box width-height, mx21 = twist ratio
+	if (type == 0.) {
+		// two spheres and one hollow cube twisted
+		float w = mx25*5.;
+		float h = mx24*5.+m2;
+		float dst = mx26*2.+m1;
+		float ss = 0.4 + m0;
+		vec3 pp = twist(p, mx21/3.*m2);
+		float b1 = box(pp, vec3(0.3*w,0.3*h,0.3));
+		float b2 = box(pp, vec3(0.4*w,0.25*h,0.25));
+		float b3 = box(pp, vec3(0.25*w,0.25*h,0.4));
+		float b4 = box(pp, vec3(0.25*w,0.4*h,0.25));
+		float s1 = sphere(pp, vec3(0.,0.,dst), ss);
+		float s2 = sphere(pp, vec3(0.,0.,-1.*dst), ss);
+		//return smin(max(-b2,b1), smin(s1,s2,.25), .25);
+		return smin(max(-b4, max(-b3, max(-b2, b1))), smin(s1,s2,.25),.25) + sinusoidBumps(pp)*mx31;
+	}
 }
 
 // The whole scene
@@ -526,14 +552,14 @@ float scene_dev(in vec3 p, float type) {
 	}
 	if (type == 5.) {
 		// two blobby objects twisted
-		vec3 pp = twist(p);
+		vec3 pp = twist(p,mx21);
 		float lel =  box(pp, vec3(0.3,0.3,0.4));//sphere(p, vec3(0.,0.,-1.*mx26), 0.4);
 		float lal = sphere(pp, vec3(0.,0.,mx26), 0.4);
 		return smin(lal,lel,.25);
 	}
 	if (type == 6.) {
 		// two blobby objects twisted blended with a hex
-		vec3 pp = twist(p);
+		vec3 pp = twist(p, mx21);
 		float lel =  box(pp-vec3(0.,1.-mx35*2.,1.-mx34*2), vec3(0.3,0.3,0.4));//sphere(p, vec3(0.,0.,-1.*mx26), 0.4);
 		float lal = sphere(pp, vec3(0.,mx26,0.), 0.4);
 		float s1 = smin(lal,lel,.25);
@@ -544,7 +570,7 @@ float scene_dev(in vec3 p, float type) {
 		// a smooth crucifix LOL
 		//return smin(box(p-vec3(.0,.3,.0),vec3(.4,.1,.1)),box(p,vec3(.1,.7,.1)),.1);
 		// a twisted smooth crucifix LEL
-		vec3 pp = twist(p);
+		vec3 pp = twist(p, mx21);
 		float c1 = smin(box(pp-vec3(.0,.3,.0),vec3(.4,.1,.1)),box(pp,vec3(.1,.7,.1)),.1);
 		float c2 = smin(box(pp-vec3(.4,.3,.0),vec3(.4,.1,.1)),box(pp-vec3(.4,.0,.0),vec3(.1,.7,.1)),.1);
 		return blend(c1, c2, mx36);
@@ -581,7 +607,7 @@ float rayMarching_dev( vec3 origin, vec3 dir, float start, float end, float type
         for ( int i = 0; i < maxIterations; i++ ) {
 		mat4 rotmat = rmat(vec3(0.,1.,0.), radians(rotation));
   		vec3 rotated_p = rot(origin + dir * rayDepth, rotmat);
-                sceneDist = scene_dev( rotated_p, type );
+                sceneDist = scene_kolektiv( rotated_p, type );
                 if (( sceneDist < stopThreshold ) || (rayDepth >= end)) {
                         break;
                 }
@@ -612,18 +638,17 @@ vec3 lights_dev(float type, vec3 cam_rot, float rotation, vec3 inColor) {
         float dist = rayMarching_dev(ro, rd, clipNear, clipFar, type, rotation );
         vec3 sp = ro + rd*dist;
         vec3 surfNormal = getNormal_dev(sp*sp, type, rotation);
-        vec3 lp = vec3(noise2f(p),noise2f(p*p),noise2f(p*p*p));
-        vec3 ld = lp-sp*5.;
+        vec3 lp = vec3(-1.,.25,0.);//vec3(noise2f(p),noise2f(p*p),noise2f(p*p*p));
+        vec3 ld = lp-sp;
         vec3 lcolor = vec3(1.,1.,1.);
         float len = length( ld );
         ld /= len;
         float lightAtten = min( 1.0 / ( 0.25*len*len ), 1.0 ); // Keeps things between 0 and 1.
         vec3 ref = reflect(-ld, surfNormal);
-
 		vec3 backgroundColor = inColor;
-        vec3 objColor = vec3(.5, .5, 0.);
-        float ambient = 1.3;
-        float specularPower = 100.0;
+        vec3 objColor = vec3(m0*10.,m1/10.,0.)*sinusoidBumps(sp)/2.;//vec3(noise2f(p*10.*m0),noise2f(p*p*10.),noise2f(p*p*p*m0));//vec3(.5, .5, 0.);
+        float ambient = .7;
+        float specularPower = 10.0*mx11;
         float diffuse = max( 0.0, dot(surfNormal, ld) );
         diffuse = pow(diffuse, 1000.);
         float specular = max( 0.0, dot( ref, normalize(camPos-sp)) );
@@ -645,18 +670,17 @@ vec3 lights_dev(float type, vec3 cam_rot, float rotation, vec3 inColor) {
 void main(void) {
 	p = vec2( gl_FragCoord.x / resolution.x, gl_FragCoord.y / resolution.y);
 	asp = resolution.x / resolution.y;
-	c = ck;
+	c = ck;//cnt(50);
+	c = vec3(noise2f(p*rand*1000.)*mx91*m2,0.,0.);
 
-	c+=circ(.4,.5,mx21/10.,cw);
+	c+=feedb_sqr(mx86, mx85, mx76*m1*7., mx75*m0*5., mx81, mx71, mx61, c)*mx51;
 
-	float type = 7.;
-	vec3 cam_rotation = vec3(mx16*PI,mx15*PI,mx14*PI);
+	float type = 0.;
+	vec3 cam_rotation = vec3(mx16*PI*cnt(5000),mx15*PI,mx14*PI);
 	float rotation = cnt(10000)*360.;
 	c += lights_dev(type, cam_rotation, rotation, c);
+	//c += vec3(cnt(50)*.002,0.,0.);
 
-	c+=circ(.1,.5,mx11,cw);
-
-	c+=feedb_sqr(mx86, mx85, mx76, mx75, mx81, mx71, mx61, c)*mx51*10.;
 	gl_FragColor = vec4(c, 1.0);
 
 }

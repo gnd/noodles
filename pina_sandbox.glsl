@@ -37,9 +37,9 @@ vec3 cb = vec3(0.,0.,1.);
 vec3 ck = vec3(0.);
 vec3 ca, cc, cd, ce, cf, cx;
 
-/// INIT 
+/// INIT
 vec2 p = vec2( gl_FragCoord.x / resolution.x, 1.0 - gl_FragCoord.y / resolution.y);
-vec2 pp = p;    //save some clean p 
+vec2 pp = p;    //save some clean p
 float asp = resolution.x / resolution.y;
 //////////////////// END OF GLOBALS //////////////
 
@@ -52,49 +52,49 @@ uniform float m51,m52,m53,m54,m55,m56,m57,m58,m59,m60,m61,m62;
 float mx11 = m8/127.;
 float mx12 = m9/127.;
 float mx13 = m10/127.;
-float mx14 = m11/127.; 
+float mx14 = m11/127.;
 float mx15 = m12/127.;
 float mx16 = m13/127.;
 float mx21 = m14/127.;
 float mx22 = m15/127.;
 float mx23 = m16/127.;
-float mx24 = m17/127.; 
+float mx24 = m17/127.;
 float mx25 = m18/127.;
 float mx26 = m19/127.;
 float mx31 = m20/127.;
 float mx32 = m21/127.;
 float mx33 = m22/127.;
-float mx34 = m23/127.; 
+float mx34 = m23/127.;
 float mx35 = m24/127.;
 float mx36 = m25/127.;
 float mx41 = m26/127.;
 float mx42 = m27/127.;
 float mx43 = m28/127.;
-float mx44 = m29/127.; 
+float mx44 = m29/127.;
 float mx45 = m30/127.;
 float mx46 = m31/127.;
 float mx51 = m32/127.;
 float mx52 = m33/127.;
 float mx53 = m34/127.;
-float mx54 = m35/127.; 
+float mx54 = m35/127.;
 float mx55 = m36/127.;
 float mx56 = m37/127.;
 float mx61 = m38/127.;
 float mx62 = m39/127.;
 float mx63 = m40/127.;
-float mx64 = m41/127.; 
+float mx64 = m41/127.;
 float mx65 = m42/127.;
 float mx66 = m43/127.;
 float mx71 = m44/127.;
 float mx72 = m45/127.;
 float mx73 = m46/127.;
-float mx74 = m47/127.; 
+float mx74 = m47/127.;
 float mx75 = m48/127.;
 float mx76 = m49/126.;
 float mx81 = m50/127.;
 float mx82 = m51/127.;
 float mx83 = m52/127.;
-float mx84a = m53/127.; 
+float mx84a = m53/127.;
 float mx85a = m54/127.;
 float mx86a = m55/127.;
 float mx84b = m56/127.;
@@ -110,10 +110,10 @@ float mx94 = m62/127.;
 
 // sinbump2
 float sinbumps2(in vec3 p, float distort){
-        float frq = 100.;
+    float frq = 100.;
 	float force = PI * distort;
 	distort *= 0.05;
-        return distort * cos(p.x/frq + force)*atan(p.y*frq + force)*tan(p.z*frq - time*100.31);
+    return distort * cos(p.x/frq + force)*atan(p.y*frq + force)*tan(p.z*frq - time*100.31);
 }
 
 // bumps (for col + geom)
@@ -128,7 +128,7 @@ float bumps(in vec3 p, float type, float distort) {
 		return distort * sin(20.*p.x)*sin(20.*p.y)*sin(20.*p.z) * (.2*zsin(time*100.)+.8);
 	}
 }
-	
+
 
 // The whole scene
 float scene(in vec3 p, float type, float distort, float bumptype, float dom_mod, float mod_dom_on) {
@@ -201,7 +201,7 @@ float rayMarching( vec3 origin, vec3 dir, float start, float end, float type, fl
 vec3 rd_gen(vec3 camPos, float aspect_in) {
         vec2 aspect = vec2(asp, aspect_in*70.);
         vec2 screenCoords = (2.0*gl_FragCoord.xy/resolution.xy - 1.0)*aspect*.5;
-        vec3 lookAt = vec3(0.,0.,0.); 
+        vec3 lookAt = vec3(0.,0.,0.);
         vec3 forward = normalize(lookAt-camPos);
         vec3 right = normalize(vec3(forward.z, 0., -forward.x ));
         vec3 up = normalize(cross(forward,right));
@@ -249,7 +249,7 @@ void main(void) {
 	vec3 color = vec3(mx86b, mx85b, mx84b);	// RGB color
 
 	mx11*=10.; 			// camera position
-	vec3 camPos = vec3(sin(mx11), sin(mx11), cos(mx11)); //static vec3(0., 0., -1.); //rotate vec3(sin(mx11), sin(mx11), cos(mx11)); 
+	vec3 camPos = vec3(sin(mx11), sin(mx11), cos(mx11)); //static vec3(0., 0., -1.); //rotate vec3(sin(mx11), sin(mx11), cos(mx11));
 	vec3 rd = rd_gen(camPos, aspect);
 	float dist = rayMarching(camPos, rd, clipNear, clipFar, type, rotation, distort, bumptype, dom_mod, dom_mod_on );
 	float outside = 0.;
@@ -262,10 +262,10 @@ void main(void) {
 		c += lights(camPos, sp, surfNormal, bumptype, distort, color)*5.;
 	}
 
-	
+
 	// ZRPT'S
 	if (mx42 == 1.) {
-	
+
 		// pretty cool
 		p = dx_p1(time,int(mx34*10.),mx35);
 
@@ -276,7 +276,7 @@ void main(void) {
 		float zmod_amp = mx31*10.;
 		if (mx43 == 0.) {
 			c += zrpty(0.5, zw, zrep, zamp, zfreq, zmod_amp);
-		} 
+		}
 		if (mx43 == 1.) {
                         c += zrpty(0.1, zw, zrep, zamp, zfreq, zmod_amp);
 			c += zrpty(0.9, zw, zrep, zamp, zfreq, zmod_amp);
@@ -345,7 +345,7 @@ void main(void) {
 			for (int i=1; i<=int(ys); i++) {
        				cx = feedb_crc(spacing*float(i)-spacing/2., yp*rand.y, xs, bs, c);
 				c = mix(c,cx,mx61);
-			} 
+			}
 		}
 		//c = mix(c,cx,mx61);
 	}
@@ -355,7 +355,7 @@ void main(void) {
 	if (mx72 == 1.) {
 		float feedpos = mx76;			// diagonal position
 		//feedpos = .5;
-		float feedsize = mx75 * 2. - 1.;	// feedback size	
+		float feedsize = mx75 * 2. - 1.;	// feedback size
 		// normal / inverse y / inverse x
 		if (mx73 == 1.) {
 			p = vec2(p.x,1.-p.y);
@@ -378,7 +378,7 @@ void main(void) {
 
 	// COLOR STUFF
 	cx = c;
-	if (mx82 == 1.) { 
+	if (mx82 == 1.) {
 		cx = vec3(dot(c.rgb, vec3(0.299, 0.587, 0.114)));
 		cx = mix(cx,vec3(mx86a,mx85a,mx84a),mx81);		//this is not really doing colorize
 	} else {

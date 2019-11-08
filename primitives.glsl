@@ -380,6 +380,18 @@ float scene_dev(in vec3 p, float type) {
 	if (type == 2.) {
 		return hex(p, vec2(0.2,0.4));
     }
+	if (type == 666.) {
+		// domain-repeated waving spheres
+		p = p - vec3(.0,-.6,.0);
+		float lol = length(vec3(mod(p.x,.4), p.y, mod(p.z,.4)) - vec3(.25,-(sin(p.x*2.*sin(time*2.)))*.3,.25)) - .1;
+		return lol;
+	}
+	if (type == 777.) {
+		// two blobby spheres
+		float lel = box(p, vec3(0.2,0.2,0.2));//sphere(p, vec3(0.,0.,-0.1), 0.4);
+		float lal = sphere(p, vec3(0.,0.,0.1), 0.4);
+		return lel;
+	}
 }
 
 
@@ -437,15 +449,14 @@ vec3 lights_dev(float type, vec3 cam_rot, float rotation, vec3 inColor) {
         vec3 forward = normalize(lookAt-camPos);
         vec3 right = normalize(vec3(forward.z, 0., -forward.x ));
         vec3 up = normalize(cross(forward,right));
-        float FOV = 0.9; // this kinda zooms in/out
+        float FOV = 1.9; // this kinda zooms in/out
         vec3 ro = camPos;
         vec3 rd = normalize(forward + FOV*screenCoords.x*right + FOV*screenCoords.y*up);
         float dist = rayMarching_dev(ro, rd, clipNear, clipFar, type, rotation );
         vec3 sp = ro + rd*dist;
         vec3 surfNormal = getNormal_dev(sp*sp, type, rotation);
-        //vec3 lp = vec3(1.5*sin(time*.5), 0.75+0.25*cos(time*0.5), -1.0);
         vec3 lp = vec3(noise2f(p),noise2f(p*p),noise2f(p*p*p));
-        vec3 ld = lp-sp;
+        vec3 ld = lp-sp*5.;
         vec3 lcolor = vec3(1.,1.,1.);
         float len = length( ld );
         ld /= len;
