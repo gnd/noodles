@@ -68,7 +68,7 @@ void main() {
     float v = gl_FragCoord.y * 2.0 / resolution.y - 1.0;
     vec3 rd = normalize(fwd + right*u + up*v/1.77); // 'ray distance'
     vec3 ro = eye; // 'ray origin'
-    vec4 color = vec4(0.0); // 'sky color'
+    vec3 color = vec3(0.0); // 'sky color'
 
     // raymarch a scene
     float step = .0;
@@ -82,10 +82,11 @@ void main() {
         // if ray very close to a surface, find out how to color that surface AKA what color is the pixel
         if (d < 0.001) {
             // red haze - basically just the number of iterations to reach the surface
-            color = vec4(float(i)*(1./float(MAXDIST)), 0.,0., 0.)*.7;
+            color = vec3(float(i)*(1./float(MAXDIST)), 0.,0.)*.7;
 
             // lighting follows
-            vec4 light_col = vec4(1.,.8,1.,0.)*1.; // light color
+            vec3 light_col = vec3(1.,.8,1.)*1.; // light color
+            vec3 material_col = vec3(1.,1.,1.); // material color
             vec3 light_dir = light-p; // direction from p to light
             vec3 normal = normal(p, 0.001); // surface normal at point p
             float reflection_ratio = 0.8; // for specular
@@ -137,14 +138,14 @@ void main() {
             }
 
             // Put everything together
-            color += vec4(vec3(1.),0.) * light_col * pow(light_intensity, 3.) * diffuse * aoc * shadow_col * soft_shadow*10.;
+            color += material_col * light_col * pow(light_intensity, 3.) * diffuse * aoc * shadow_col * soft_shadow*10.;
             color += specular;
             break;
         }
         step += d;
         // red haze makes it lil bit interesting
-        color = vec4(float(i)*(1./32.), 0.,0., 0.);
+        color = vec3(float(i)*(1./32.), 0.,0.);
     }
 
-    gl_FragColor = color;
+    gl_FragColor = vec4(color, 0.);
 }
