@@ -59,65 +59,59 @@ vec3 normal(vec3 p, float dx) {
 }
 
 void main() {
-    // setup some globals
-    vec3 eye = vec3(cos(time/3.), sin(time/3.)+1., -3.);
+    vec3 eye = vec3(cos(time/3.), sin(time/3.)+1., -3.); // camera position
     vec3 up = vec3(0, 1, 0);
     vec3 right = vec3(1, 0, 0);
     vec3 fwd = normalize(vec3(0.)-eye);
-    vec3 light = vec3(cos(time),2.,sin(time));
+    vec3 light = vec3(cos(time),2.,sin(time)); // light position (point light)
     float u = gl_FragCoord.x * 2.0 / resolution.x - 1.0;
     float v = gl_FragCoord.y * 2.0 / resolution.y - 1.0;
-    vec3 rd = normalize(fwd + right*u + up*v/1.77);
-    vec3 ro = eye;
-    vec4 color = vec4(0.0);
+    vec3 rd = normalize(fwd + right*u + up*v/1.77); // 'ray distance'
+    vec3 ro = eye; // 'ray origin'
+    vec4 color = vec4(0.0); // 'sky color'
 
     // raymarch a scene
-    float t = .0;
+    float step = .0;
     for (int i = 0; i < MAXSTEPS; ++i) {
-        vec3 p = ro + rd * t;
+        vec3 p = ro + rd * step;
         float d = scene(p);
+        // if ray doesnt hit any surface, kill it after being longer than MAXDIST
         if (d > MAXDIST) {
-            // blue fog
-            //color = vec4(0.,0.,1.,0.);
-            // red haze
-            //color = vec4(float(i)*(1./32.), 0.,0., 0.);
             break;
         }
+        // if ray very close to a surface, find out how to color that surface AKA what color is the pixel
         if (d < 0.001) {
-            // blue fog
-            //float dist = scene(eye);
-            //color += vec4(0.,0., 1./MAXDIST*dist, 0.);
             // red haze - basically just the number of iterations to reach the surface
-            color = vec4(float(i)*(1./32.), 0.,0., 0.)*.7;
+            color = vec4(float(i)*(1./float(MAXDIST)), 0.,0., 0.)*.7;
 
-            // normal white color
-            vec4 lightcol = vec4(1.,.8,1.,0.)*2.;
+            // lighting follows
+            vec4 light_col = vec4(1.,.8,1.,0.)*1.; // light color
             vec3 light_dir = light-p; // direction from p to light
             vec3 normal = normal(p, 0.001); // surface normal at point p
-            // we compute shortest distance between scene and light
-            float shortestlightdist = scene(light);
-            // use it to determine light_intensity as in point light
-            float light_intensity = shortestlightdist/length(light_dir);
-            // light intensity at a point depends on the angle between the surface normal and the direction to the light.
-            // By clamping the dot product of these vectors between 0 and 1, we get a measure for how strongly the point should be lit.
-            float shading = clamp(dot(normal,normalize(light_dir)), 0., .4);
+            float reflection_ratio = 0.8; // for specular
+            float shininess = 10.9; // for specular
 
-            // compute phong specular
-            // using phong: https://en.wikipedia.org/wiki/Phong_reflection_model
-            float reflection_ratio = 0.8;
-            float shininess = 10.9;
+            // Diffuse shading using Lambertian reflectance
+            // https://en.wikipedia.org/wiki/Lambertian_reflectance
+            float diffuse = clamp(dot(normal,normalize(light_dir)), 0., .4);
+
+            // Determine intensity of light at p
+            float light_dist = scene(light);
+            float light_intensity = light_dist/length(light_dir);
+
+            // Specular reflections using phong
+            // https://en.wikipedia.org/wiki/Phong_reflection_model
             vec3 reflection_dir = 2.*dot(normalize(light_dir), normal)*normal-normalize(light_dir);
             float specular = clamp(reflection_ratio * pow(dot(normalize(reflection_dir), normalize(eye-p)), shininess), 0., 1.);
 
-            // to compute shadows
-            // Simply check if the path from the point to shade to each light source is obstructed or not, by raymarching.
+            // Shadows - basically raymarch towards the light
+            // If the path from p to each light source is obstructed add shadow
             float shadow_col = 1.;
             float shadow_t = 0.1;
             float soft_shadow = 1.;
-            vec3 shadow_rd = normalize(light_dir);
             // we dont have to use MAXSTEPS here, 20 seems to be enough
             for (int j = 0; j < 20; j++) {
-                vec3 shadow_p = p + shadow_rd * shadow_t;
+                vec3 shadow_p = p + normalize(light_dir) * shadow_t;
                 float shadow_d = scene(shadow_p);
                 if (shadow_d > length(light_dir)) {
                     break;
@@ -131,7 +125,8 @@ void main() {
                 shadow_t += shadow_d;
             }
 
-            // ambient occlusion
+            // Ambient occlusion
+            // Raymarch along normal a few steps, ig hit a surface add shadow
             float aoc = 1.;
             float aoc_t = .0;
             for (int k =0; k < 5; k++) {
@@ -142,15 +137,12 @@ void main() {
             }
 
             // Put everything together
-            color += vec4(vec3(1.),0.) * lightcol * light_intensity*light_intensity*light_intensity * shading * aoc * shadow_col * soft_shadow/.1;
+            color += vec4(vec3(1.),0.) * light_col * pow(light_intensity, 3.) * diffuse * aoc * shadow_col * soft_shadow*10.;
             color += specular;
             break;
         }
-        t += d;
-        // blue fog
-        //float dist = scene(eye);
-        //color += vec4(0.,0.,1./MAXDIST*dist,0.);
-        // red haze
+        step += d;
+        // red haze makes it lil bit interesting
         color = vec4(float(i)*(1./32.), 0.,0., 0.);
     }
 
