@@ -10,11 +10,10 @@ uniform sampler2D backbuffer;
 struct march { float step; vec3 ro; vec3 rd; };
 struct light { vec3 position; vec3 color; };
 struct material { vec3 color; float reflection_ratio; float shininess; };
-struct shading { float diffuse; float specular; float intensity; float shadow; float aoc; float amb; };
+struct shading { float diffuse; float specular; float shadow; float aoc; float amb; };
 
-bool inside1 = false;
-bool inside2 = false;
-bool reflect1 = false;
+bool reflected = false;
+bool refracted = false;
 
 light l1;
 material m1,m2;
@@ -52,18 +51,27 @@ float red_cube(vec3 p) {
     return box(p-vec3(1.,.4,1.5), vec3(.7,.7,.7), 0.);
 }
 
+float blue_cube(vec3 p) {
+    return box(p-vec3(3.,0.,-6.), vec3(.7,.7,.7), 0.);
+}
+
+float green_cube(vec3 p) {
+    return box(p-vec3(-5.,-.1,4.), vec3(.4,.4,.4), 0.);
+}
+
 float mirror(vec3 p) {
     float height = .45;
-    return box(p-vec3(.0,-1.*height,.0), vec3(1.7,.01,1.7), .0);
+    return box(p-vec3(.0,-1.*height,.0), vec3(1.7,.15,1.7), .0);
 }
 
 float plane(vec3 p) {
     float height = .5;
-    return box(p-vec3(.0,-1.*height,.0), vec3(20.,.01,20.), .0);
+    float width = 15.;
+    return box(p-vec3(.0,-1.*height,.0), vec3(width,.01,width), .0);
 }
 
 float scene(vec3 p) {
-    return min(min( min(glass_sphere_lil(p), glass_sphere(p)), min(mirror(p), plane(p))), min(neon_sphere(p), red_cube(p)));
+    return min(min( min(glass_sphere_lil(p), glass_sphere(p)), min(mirror(p), plane(p))), min(neon_sphere(p), min(min(blue_cube(p), green_cube(p)), red_cube(p))));
 }
 
 // taken from http://iquilezles.org/www/articles/normalsSDF/normalsSDF.htm
@@ -109,8 +117,6 @@ march reflection(vec3 p, vec3 light_dir) {
         float d = scene(p);
         march.step += max(abs(d),eps);
         if (d > eps) {
-            // attenuate sky color to 80%
-            color *= 0.8;
             break;
         }
     }
@@ -141,27 +147,22 @@ shading get_shading(material m, light l, vec3 p, vec3 eye) {
     vec3 reflection_dir = normalize(reflect(-light_dir, normal));
     s.specular = clamp(m.reflection_ratio * pow(dot(reflection_dir, normalize(eye-p)), m.shininess), 0., 1.);
 
-    // Determine intensity of light at p
-    float light_dist = scene(l.position);
-    s.intensity = light_dist/length(light_dir);
-    s.intensity = pow(s.intensity, 1.);
-
     // Shadows - basically raymarch towards the light
     // If the path from p to each light source is obstructed add shadow
+    // soft shadows taken from http://www.iquilezles.org/www/articles/rmshadows/rmshadows.htm
     s.shadow = 1.;
-    step = 0.0025;
-    for (int i = 0; i < MAXSTEPS/3; i++ ) {
+    step = 0.001;
+    float ph = 1e10;
+    for (int i = 0; i < MAXSTEPS; i++ ) {
         vec3 shadow_p = p + normalize(light_dir) * step;
         float shadow_d = scene(shadow_p);
-        if (shadow_d > length(light_dir)) {
+        if ((shadow_d < eps) || (step > MAXDIST)) {
             break;
         }
-        if ((shadow_d < eps) || (step > MAXDIST*2)) {
-            s.shadow = 0.;
-            break;
-        }
-        // check http://www.iquilezles.org/www/articles/rmshadows/rmshadows.htm
-        s.shadow = min( s.shadow, 32.*shadow_d/step );
+        float y = pow(shadow_d, 1)/(2.0*ph);
+        float d = sqrt(shadow_d*shadow_d-y*y);
+        s.shadow = min( s.shadow, 64.*shadow_d/max(.0,step-y));
+        ph = shadow_d;
         step += shadow_d;
     }
     s.shadow = clamp(s.shadow, 0., 1.);
@@ -184,7 +185,8 @@ shading get_shading(material m, light l, vec3 p, vec3 eye) {
 }
 
 void main() {
-    vec3 eye = vec3(cos(time/3.)*3., 2., sin(time/3.)*3.);
+    vec3 eye = vec3(cos(time/4.)*3., 2., sin(time/4.)*3.);
+    //eye = vec3(1.7,2., -2.);
     vec3 lookat = vec3(0.,0.,0.);
     vec3 fwd = normalize(lookat-eye);
     vec3 right = normalize(vec3(fwd.z, 0., -fwd.x ));
@@ -197,49 +199,47 @@ void main() {
 
     // enviroment
     l1.color = vec3(1.,1.,1.);
-    l1.position = vec3(sin(time/4.),2.,cos(time/4.));
+    l1.position = vec3(sin(time/4.)*4.,2.5,cos(time/4.)*3.);
+    l1.position = vec3(1.2, 2.0, -1.9);
     color = vec3(1.);
 
     // raymarch a scene
     float step = .0;
-    vec3 p_tmp, pp, ppp, pppp;
+    vec3 p, p_refr, p_refl;
     float eta;
     for (int i = 0; i < MAXSTEPS; ++i) {
-        vec3 p = ro + rd * step;
+        p = ro + rd * step;
         float d = scene(p);
         if (d > MAXDIST) {
+            if (refracted) {
+                m1.color = vec3(0.,0.,1.);
+                m1.reflection_ratio = 10.9;
+                m1.shininess = 100.9;
+                s1 = get_shading(m1, l1, p_refr, eye);
+                color += s1.specular*10.;
+            }
+            if (reflected) {
+                // attenuate sky color
+                color *= 0.8;
+            }
             break;
         }
         if (d < eps) {
             if ((glass_sphere(p) == scene(p)) || (glass_sphere_lil(p) == scene(p)) || mirror(p) == scene(p)) {
                 if (mirror(p) == scene(p)) {
                     // Compute reflection
-                    pp = p;
-                    reflect1 = true;
+                    p_refl = p;
+                    reflected = true;
                     vec3 ld = normalize(eye - p);
                     march march = reflection(p, ld);
                     step = march.step;
                     rd = march.rd;
                     ro = march.ro;
-                }
-                if (glass_sphere_lil(p) == scene(p)) {
-                    // Glass becomes a 'portal' through which refracted rays keep on raymarching
-                    ppp = p;
-                    inside2 = true;
-                    // eta here is a ratio of source material refraction index with the dest material refraction index
-                    // eg. air: 1, water 1.5 => eta = 1./1.5
-                    // eta = 1.0/1.5; // air / glass
-                    eta = 1.0/2.22; // air / diamond
-                    march march = refraction(p, rd, eta);
-                    step = march.step;
-                    rd = march.rd;
-                    ro = march.ro;
-                }
-                if (glass_sphere(p) == scene(p)) {
-                    // Glass becomes a 'portal' through which refracted rays keep on raymarching
-                    pp = p;
-                    inside1 = true;
-                    eta = 1.0/1.33; // air / water
+                } else {
+                    // Compute refraction
+                    p_refr = p;
+                    refracted = true;
+                    eta = 1./2.22;
                     march march = refraction(p, rd, eta);
                     step = march.step;
                     rd = march.rd;
@@ -252,59 +252,66 @@ void main() {
                     m1.shininess = 15.9;
                     s1 = get_shading(m1, l1, p, eye);
                     // check https://www.shadertoy.com/view/lsKcDD
-                    color = m1.color * s1.diffuse * s1.intensity * s1.shadow;
+                    color = m1.color * s1.diffuse * s1.shadow;
                     color += s1.specular;
-                    color += m1.color * s1.aoc * s1.amb * 0.5;
+                    color *= s1.aoc;
+                    color += m1.color * s1.amb *.09;
                 }
                 if (red_cube(p) == scene(p)) {
                     m1.color = vec3(1.,0.,0.);
-                    m1.reflection_ratio = .1;
-                    m1.shininess = 0.9;
+                    m1.reflection_ratio = .2;
+                    m1.shininess = 10.9;
                     s1 = get_shading(m1, l1, p, eye);
                     // check https://www.shadertoy.com/view/lsKcDD
-                    color = m1.color * s1.diffuse * s1.intensity * s1.shadow;
+                    color = m1.color * s1.diffuse * s1.shadow;
                     color += s1.specular;
-                    color += m1.color * s1.aoc * s1.amb * 0.6;
+                    color *= s1.aoc;
+                    color += m1.color * s1.amb *.09;
+                }
+                if (blue_cube(p) == scene(p)) {
+                    m1.color = vec3(0.,0.07,1.);
+                    m1.reflection_ratio = .2;
+                    m1.shininess = 10.9;
+                    s1 = get_shading(m1, l1, p, eye);
+                    // check https://www.shadertoy.com/view/lsKcDD
+                    color = m1.color * s1.diffuse * s1.shadow * 1.2;
+                    color += s1.specular;
+                    color *= s1.aoc;
+                    color += m1.color * s1.amb *.3;
+                }
+                if (green_cube(p) == scene(p)) {
+                    m1.color = vec3(0.,1.,0.);
+                    m1.reflection_ratio = .2;
+                    m1.shininess = 10.9;
+                    s1 = get_shading(m1, l1, p, eye);
+                    // check https://www.shadertoy.com/view/lsKcDD
+                    color = m1.color * s1.diffuse * s1.shadow;
+                    color += s1.specular;
+                    color *= s1.aoc;
+                    color += m1.color * s1.amb *.09;
                 }
                 if (plane(p) == scene(p)) {
-                    m1.color = vec3(.1,.1,1.);
-                    m1.reflection_ratio = .1;
-                    m1.shininess = 0.1;
+                    float checker = mod(floor(p.x)+floor(p.z)-.5, 2.0);
+                    m1.color = vec3(checker);
+                    m1.reflection_ratio = 0.01;
+                    m1.shininess = 3.;
                     s1 = get_shading(m1, l1, p, eye);
                     // check https://www.shadertoy.com/view/lsKcDD
-                    color = m1.color * s1.diffuse * s1.intensity * s1.shadow * 5.;
-                    //color += s1.specular;
+                    color = m1.color * s1.diffuse * s1.shadow;
+                    color += s1.specular;
                     color *= s1.aoc;
-                    color += s1.amb *.05;
+                    color += m1.color * s1.amb *.09;
                 }
-                if (reflect1) {
+                if (refracted) {
+                    m1.color = vec3(0.,0.,1.);
+                    m1.reflection_ratio = 10.9;
+                    m1.shininess = 100.9;
+                    s1 = get_shading(m1, l1, p_refr, eye);
+                    color += s1.specular*10.;
+                }
+                if (reflected) {
                     // attenuate reflected color
                     color *= 0.8;
-                }
-                if (inside1) {
-                    // now add specular & reflection to the glass sphere
-                    m1.color = vec3(0.,0.,1.);
-                    m1.reflection_ratio = 10.9;
-                    m1.shininess = 100.9;
-                    s1 = get_shading(m1, l1, pp, eye);
-                    // check https://www.shadertoy.com/view/lsKcDD
-                    float fr = fresnel(normalize(eye-pp), normal(pp), 0.5);
-                    vec3 reflection = fr * texture(backbuffer, reflect(-1.*normalize(eye-pp).xy, normal(pp).xy)).xyz;
-                    color += reflection*0.05;
-                    color += s1.specular*10.;
-                }
-                if (inside2) {
-                    // now add specular & reflection to the glass sphere
-                    m1.color = vec3(0.,0.,1.);
-                    m1.reflection_ratio = 10.9;
-                    m1.shininess = 100.9;
-                    s1 = get_shading(m1, l1, ppp, eye);
-                    // check https://www.shadertoy.com/view/lsKcDD
-                    float fr = fresnel(normalize(eye-pp), normal(pp), 0.5);
-                    vec3 reflection = fr * texture(backbuffer, reflect(-1.*normalize(eye-pp).xy, normal(pp).xy)).xyz;
-                    //color += m1.color * 1.;
-                    color += reflection*0.05;
-                    color += s1.specular*10.;
                 }
                 break;
             }
