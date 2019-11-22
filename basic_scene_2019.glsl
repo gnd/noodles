@@ -7,9 +7,9 @@ uniform sampler2D backbuffer;
 #define MAXDIST 20.0
 #define eps 0.0001
 #define SINBUMPS
-##define REPEAT
-##define REPEATPLANE
-##define FLY
+//#define REPEAT
+//#define REPEATPLANE
+//#define FLY
 
 struct light { vec3 position; vec3 color; };
 struct material { vec3 color; float reflection_ratio; float shininess; };
