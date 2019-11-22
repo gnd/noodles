@@ -6,6 +6,10 @@ uniform sampler2D backbuffer;
 #define MAXSTEPS 128
 #define MAXDIST 20.0
 #define eps 0.0001
+//#define AA // comment out to turn of anti-aliasing
+
+/* with AA one frame takes cca 190ms on geforce 940M
+   without AA its cca 50ms */
 
 struct march { float step; vec3 ro; vec3 rd; };
 struct light { vec3 position; vec3 color; };
@@ -123,15 +127,6 @@ march reflection(vec3 p, vec3 light_dir) {
     return march;
 }
 
-float fresnel(vec3 V, vec3 N, float R0) {
-    float cosAngle = 1.0-max(dot(V, N), 0.0);
-    float result = cosAngle * cosAngle;
-    result = result * result;
-    result = result * cosAngle;
-    result = clamp(result * (1.0 - R0) + R0, 0.0, 1.0);
-    return result;
-}
-
 shading get_shading(material m, light l, vec3 p, vec3 eye) {
     shading s;
     float step;
@@ -184,15 +179,17 @@ shading get_shading(material m, light l, vec3 p, vec3 eye) {
     return s;
 }
 
-void main() {
+vec3 draw(in vec2 fragcoord) {
     vec3 eye = vec3(cos(time/4.)*3., 2., sin(time/4.)*3.);
-    //eye = vec3(1.7,2., -2.);
+    //eye = vec3(0.8,2., -2.);
     vec3 lookat = vec3(0.,0.,0.);
     vec3 fwd = normalize(lookat-eye);
     vec3 right = normalize(vec3(fwd.z, 0., -fwd.x ));
     vec3 up = normalize(cross(fwd, right));
-    float u = gl_FragCoord.x * 2.0 / resolution.x - 1.0;
-    float v = gl_FragCoord.y * 2.0 / resolution.y - 1.0;
+    //float u = gl_FragCoord.x * 2.0 / resolution.x - 1.0;
+    //float v = gl_FragCoord.y * 2.0 / resolution.y - 1.0;
+    float u = fragcoord.x * 2.0 / resolution.x - 1.0;
+    float v = fragcoord.y * 2.0 / resolution.y - 1.0;
     float aspect = resolution.x/resolution.y;
     vec3 ro = eye;
     vec3 rd = normalize(1.4*fwd + u*right*aspect + v*up);
@@ -200,7 +197,7 @@ void main() {
     // enviroment
     l1.color = vec3(1.,1.,1.);
     l1.position = vec3(sin(time/4.)*4.,2.5,cos(time/4.)*3.);
-    l1.position = vec3(1.2, 2.0, -1.9);
+    //l1.position = vec3(1.2, 2.0, -1.9);
     color = vec3(1.);
 
     // raymarch a scene
@@ -319,8 +316,30 @@ void main() {
         step += d;
     }
 
-    // gamma correction
-    color = pow( color, vec3(1.0/2.2) );
+    return color;
+}
 
-    PixelColor = vec4(color, 0.);
+void main() {
+    vec3 col;
+    #ifdef AA
+        // do some antialiasing
+        float AA_size = 2.0;
+        float count = 0.0;
+        for (float aaY = 0.0; aaY < AA_size; aaY++) {
+            for (float aaX = 0.0; aaX < AA_size; aaX++) {
+                col += draw(gl_FragCoord.xy + vec2(aaX, aaY) / AA_size);
+                count += 1.0;
+            }
+        }
+        col /= count;
+    #else
+        col = draw(gl_FragCoord.xy);
+    #endif
+
+    // gamma correction
+    col = pow( col, vec3(1.0/2.2) );
+
+    // send to screen
+    PixelColor = vec4(col, 1.);
+
 }
