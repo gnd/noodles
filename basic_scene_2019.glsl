@@ -11,6 +11,7 @@ uniform sampler2D backbuffer;
 //#define REPEATPLANE
 //#define FLY
 
+struct march { float step; vec3 ro; vec3 rd; };
 struct light { vec3 position; vec3 color; };
 struct material { vec3 color; float reflection_ratio; float shininess; };
 struct shading { float diffuse; float specular; float intensity; float shadow; float aoc; float amb; };
@@ -18,6 +19,9 @@ struct shading { float diffuse; float specular; float intensity; float shadow; f
 light l1;
 material m1,m2;
 shading s1,s2;
+
+vec3 color = vec3(0.); //sky color
+bool refracted = false;
 
 // smooth min
 float smin( float a, float b, float k ) {
@@ -73,7 +77,7 @@ float scene_object(vec3 p) {
 }
 
 float glass_sphere(vec3 p) {
-    return sphere(p-vec3(0.,1.,.0), .5);
+    return sphere(p-vec3(0.,1.5,.0), .8);
 }
 
 float scene(vec3 p) {
@@ -89,13 +93,27 @@ vec3 normal(vec3 p) {
                       k.xxx*scene( p + k.xxx*eps ) );
 }
 
-float fresnel(vec3 V, vec3 N, float R0) {
-    float cosAngle = 1.0-max(dot(V, N), 0.0);
-    float result = cosAngle * cosAngle;
-    result = result * result;
-    result = result * cosAngle;
-    result = clamp(result * (1.0 - R0) + R0, 0.0, 1.0);
-    return result;
+march refraction(vec3 p, vec3 rd, float eta) {
+    // Glass becomes a 'portal' through which refracted rays keep on raymarching
+    march march;
+    vec3 n = normal(p);
+    march.ro = p;
+    march.rd = normalize(refract(rd, n, eta));
+    march.step = 0.0;
+    for (int j=0; j < MAXSTEPS; j++) {
+        p = march.ro + march.rd * march.step;
+        float d = scene(p);
+        march.step += max(abs(d),eps);
+        if (d > eps) {
+            // attenuate due to impurities, etc
+            color *= 1.;
+            // second refraction
+            march.ro = p;
+            march.rd = normalize(refract(march.rd, -normal(p), 1./eta));
+            break;
+        }
+    }
+    return march;
 }
 
 shading get_shading(material m, light l, vec3 p, vec3 eye) {
@@ -178,12 +196,13 @@ void main() {
     // enviroment
     l1.color = vec3(1.,1.,1.);
     //l1.position = vec3(cos(time)*3.,2.,sin(time)*3.); // light position
-    vec3 color = vec3(0.,0.,0.); // 'sky color'
+    color = vec3(0.,0.,0.); // 'sky color
 
     // raymarch a scene
     float step = .0;
+    vec3 p, p_refr;
     for (int i = 0; i < MAXSTEPS; ++i) {
-        vec3 p = ro + rd * step;
+        p = ro + rd * step;
         float d = scene(p);
         // if ray doesnt hit any surface, kill it after being longer than MAXDIST
         if (d > MAXDIST) {
@@ -191,45 +210,46 @@ void main() {
         }
         // if ray very close to a surface, find out how to color that surface AKA what color is the pixel
         if (d < eps) {
-            // shading the plane
-            if (scene_plane(p) == scene(p)) {
-                m2.color = vec3(0.,0.,1.)*10.;
-                m2.reflection_ratio = 0.9;
-                m2.shininess = 100.9;
-                s2 = get_shading(m2, l1, p, eye);
-                // check https://www.shadertoy.com/view/lsKcDD
-                color += m2.color * s2.diffuse * s2.intensity * s2.shadow * 2.;
-                color += s2.specular;
-                color += m2.color * s2.aoc * s2.amb * 0.2;
+            if (scene(p) == glass_sphere(p)) {
+                // Compute refraction
+                p_refr = p;
+                refracted = true;
+                march march = refraction(p, rd, 1./2.22);
+                step = march.step;
+                rd = march.rd;
+                ro = march.ro;
+            } else {
+                // shading the plane
+                if (scene_plane(p) == scene(p)) {
+                    m2.color = vec3(0.,0.,1.)*10.;
+                    m2.reflection_ratio = 0.9;
+                    m2.shininess = 100.9;
+                    s2 = get_shading(m2, l1, p, eye);
+                    // check https://www.shadertoy.com/view/lsKcDD
+                    color += m2.color * s2.diffuse * s2.intensity * s2.shadow * 2.;
+                    color += s2.specular;
+                    color += m2.color * s2.aoc * s2.amb * 0.2;
+                }
+                // shading the object
+                if (scene_object(p) == scene(p)) {
+                    m1.color = vec3(.0,0.,0.);
+                    m1.reflection_ratio = .9;
+                    m1.shininess = 10.9;
+                    s1 = get_shading(m1, l1, p, eye);
+                    // check https://www.shadertoy.com/view/lsKcDD
+                    color += color * 0.9 + m1.color * s1.diffuse;// * s1.intensity *s1.shadow * .1;
+                    color += s1.specular;
+                    color += m1.color * s1.aoc * s1.amb * 0.2;
+                }
+                if (refracted) {
+                    m1.color = vec3(0.,0.,1.);
+                    m1.reflection_ratio = 10.9;
+                    m1.shininess = 100.9;
+                    s1 = get_shading(m1, l1, p_refr, eye);
+                    color += s1.specular*10.;
+                }
+                break;
             }
-            // shading the object
-            if (scene_object(p) == scene(p)) {
-                m1.color = vec3(.0,0.,0.);
-                m1.reflection_ratio = .9;
-                m1.shininess = 10.9;
-                s1 = get_shading(m1, l1, p, eye);
-                // check https://www.shadertoy.com/view/lsKcDD
-                color = color * 0.9 + m1.color * s1.diffuse;// * s1.intensity *s1.shadow * .1;
-                color += s1.specular;
-                color += m1.color * s1.aoc * s1.amb * 0.2;
-            }
-            // shading the glass sphere
-            if (glass_sphere(p) == scene(p)) {
-                m1.color = vec3(0.0);
-                m1.reflection_ratio = 10.9;
-                m1.shininess = 100.9;
-                s1 = get_shading(m1, l1, p, eye);
-                // check https://www.shadertoy.com/view/lsKcDD
-                float fr = fresnel(normalize(eye-p), normal(p), 0.5);
-                vec3 reflection = fr * texture(backbuffer, reflect(-1.*normalize(eye-p), normal(p)).xy).xyz;
-                vec3 refraction = (1.0-fr) * texture(backbuffer, refract(-1.*normalize(eye-p), normal(p), 0.8).xy).xyz;
-                color *= m1.color;
-    	        color += (reflection + refraction) * .5;
-                //color += m1.color * s1.diffuse * s1.intensity * 0.01;// *s1.shadow * 1.;
-                color += s1.specular * 2;
-                //color += m1.color * s1.aoc * s1.amb * 0.2;
-            }
-            break;
         }
         step += d;
         // red haze makes it lil bit interesting
