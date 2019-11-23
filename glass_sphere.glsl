@@ -146,6 +146,28 @@ shading get_shading(material m, light l, vec3 p, vec3 eye) {
     // If the path from p to each light source is obstructed add shadow
     // soft shadows taken from http://www.iquilezles.org/www/articles/rmshadows/rmshadows.htm
     s.shadow = 1.;
+    step = 0.01;
+    float ph = 1e10;
+    for (int i = 0; i < MAXSTEPS/2; i++ ) {
+        vec3 shadow_p = p + normalize(light_dir) * step;
+        float shadow_d = scene(shadow_p);
+        if (shadow_d < eps) {
+            s.shadow = 0.;
+            break;
+        }
+        if (step > MAXDIST) {
+            break;
+        }
+        float y = pow(shadow_d, 2)/(2.0*ph);
+        float d = sqrt(shadow_d*shadow_d-y*y);
+        s.shadow = min(s.shadow, 32.*d/max(.0,step-y));
+        ph = shadow_d;
+        step += shadow_d;
+    }
+    s.shadow = clamp(s.shadow, 0., 1.);
+
+    /* broken, but could be salvaged for fake caustics
+    s.shadow = 1.;
     step = 0.001;
     float ph = 1e10;
     for (int i = 0; i < MAXSTEPS; i++ ) {
@@ -161,6 +183,7 @@ shading get_shading(material m, light l, vec3 p, vec3 eye) {
         step += shadow_d;
     }
     s.shadow = clamp(s.shadow, 0., 1.);
+    */
 
     // Ambient occlusion
     // Raymarch along normal a few steps, if hit a surface add shadow
