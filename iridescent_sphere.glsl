@@ -19,6 +19,8 @@ shading s1,s2,s3;
 
 vec3 color; // 'sky color'
 
+/* takes ~40-50ms on geforce 940m @ 1280x720 */
+
 // Sinusoid bumps
 float sinbumps(in vec3 p) {
     float frq = 10.;
