@@ -2,6 +2,8 @@
 out vec4 PixelColor;
 uniform vec2 resolution;
 uniform float time;
+uniform sampler3D RGB2HSI;
+uniform sampler3D HSI2RGB;
 uniform sampler2D backbuffer;
 #define MAXSTEPS 128
 #define MAXDIST 20.0
@@ -36,8 +38,16 @@ float box(vec3 p, vec3 b, float r) {
     return min(maxcomp(d),0.0) - r + length(max(d,0.0));
 }
 
-float iridescent_sphere(vec3 p) {
-    return sinbumps(p) + sphere(p-vec3(0.,1.,.0), 1.);
+float iridescent_sphere1(vec3 p) {
+    return sinbumps(p) + sphere(p-vec3(1.2,1.,1.), .7);
+}
+
+float iridescent_sphere2(vec3 p) {
+    return sinbumps(p) + sphere(p-vec3(-1.2,1.,1.), .7);
+}
+
+float iridescent_sphere3(vec3 p) {
+    return sinbumps(p) + sphere(p-vec3(0.,1.,-1.2), .7);
 }
 
 float plane(vec3 p) {
@@ -47,7 +57,7 @@ float plane(vec3 p) {
 }
 
 float scene(vec3 p) {
-    return min(iridescent_sphere(p), plane(p));
+    return min(min(min(iridescent_sphere3(p), iridescent_sphere2(p)), iridescent_sphere1(p)), plane(p));
 }
 
 // taken from http://iquilezles.org/www/articles/normalsSDF/normalsSDF.htm
@@ -57,6 +67,20 @@ vec3 normal(vec3 p) {
                       k.yyx*scene( p + k.yyx*eps ) +
                       k.yxy*scene( p + k.yxy*eps ) +
                       k.xxx*scene( p + k.xxx*eps ) );
+}
+
+// from https://alaingalvan.tumblr.com/post/79864187609/glsl-color-correction-shaders
+vec3 brightcon(vec3 c, float brightness, float contrast) {
+    return (c - 0.5) * contrast + 0.5 + brightness;
+}
+
+// from https://www.shadertoy.com/view/llcXWM
+vec3 pal( in float t, in vec3 a, in vec3 b, in vec3 c, in vec3 d ) {
+    return a + b*cos( 6.28318*(c*t+d) );
+}
+
+vec3 spectrum(float n) {
+    return pal( n, vec3(0.5,0.5,0.5),vec3(0.5,0.5,0.5),vec3(1.0,1.0,1.0),vec3(0.0,0.33,0.67) );
 }
 
 shading get_shading(material m, light l, vec3 p, vec3 eye) {
@@ -134,7 +158,7 @@ vec3 draw(in vec2 fragcoord) {
     l1.color = vec3(1.,1.,1.);
     l1.position = vec3(sin(time/4.)*4.,2.5,cos(time/4.)*3.);
     //l1.position = vec3(1.2, 2.0, -1.9);
-    color = vec3(1.);
+    color = vec3(.0);
 
     // raymarch a scene
     float step = .0;
@@ -146,11 +170,11 @@ vec3 draw(in vec2 fragcoord) {
             break;
         }
         if (d < eps) {
-            if (iridescent_sphere(p) == scene(p)) {
+            vec3 n = normal(p);
+            if (iridescent_sphere1(p) == scene(p)) {
                 vec3 pp = mod(p*100., 2.) - .5;
                 vec3 i = normalize(eye - pp);
                 // first try at iridescnce -> color changes according to the angle of view
-                vec3 n = normal(p);
                 vec3 ir = refract(i, n, 1./1.);
                 vec3 ir2 = refract(i, -n, 1./2.);
                 vec3 ir_color = vec3(cross(ir, n));
@@ -167,13 +191,44 @@ vec3 draw(in vec2 fragcoord) {
                 m3.reflection_ratio = 0.5;
                 m3.shininess = 0.1;
                 s3 = get_shading(m3, l1, p, eye);
-                // check https://www.shadertoy.com/view/lsKcDD
+                // mix it
                 color = ir_color2 * s1.diffuse * s1.shadow * 1.;
                 color += ir_color2*1.3 + s2.specular * .1;
                 color += s3.specular * 0.1;
                 color += ir_color * s1.specular * 2.5;
+                color += m1.color * s1.amb * 1.1;
+            }
+            if (iridescent_sphere2(p) == scene(p)) {
+                float nv = dot(n, -rd);
+                vec3 col = vec3(0.);
+                // https://www.shadertoy.com/view/tdBXzR tweaked
+                col += sin(nv * vec3(0.0, 1.0, 0.0) * 10.0 * 1.5) * 0.5 + 0.5;
+                col += sin(nv * vec3(1.0, 0.0, 0.0) * 20.0 * 1.5) * 0.5 + 0.5;
+                col += sin(nv * vec3(0.0, 0.0, 1.0) * 5.0 * 1.5) * 0.5 + 0.5;
+                col = 1.1 - col;
+                m1.color = clamp(normalize(col), 0.0, 1.0);
+                m1.reflection_ratio = 3.5;
+                m1.shininess = 70.;
+                s1 = get_shading(m1, l1, p, eye);
+                color = brightcon(m1.color, .1, 1.5) * s1.diffuse * 1.;
+                color += s1.specular;
                 //color *= s1.aoc;
                 color += m1.color * s1.amb * 1.1;
+                // a slight blue glov
+                color += vec3(0.,0.,float(i)*(1./float(MAXSTEPS/3)))*.05;
+            }
+            // the tick was to remove the diffuse element & lower the abient and make the color almost black
+            // the colors show up only as part of the specular component
+            if (iridescent_sphere3(p) == scene(p)) {
+                //https://www.shadertoy.com/view/llcXWM
+                vec3 perturb = sin(p * 10.);
+                m1.color = spectrum( dot(n + perturb * .05, eye) * 2.);
+                m1.reflection_ratio = .5;
+                m1.shininess = .1;
+                s1 = get_shading(m1, l1, p, eye);
+                color = 0.01 - m1.color;
+                color += s1.specular;
+                color += m1.color * s1.amb * 0.5;
             }
             if (plane(p) == scene(p)) {
                 float checker = mod(floor(p.x)+floor(p.z)-.5, 2.0);
@@ -181,11 +236,10 @@ vec3 draw(in vec2 fragcoord) {
                 m1.reflection_ratio = 0.01;
                 m1.shininess = 3.;
                 s1 = get_shading(m1, l1, p, eye);
-                // check https://www.shadertoy.com/view/lsKcDD
-                color = m1.color * s1.diffuse * s1.shadow;
+                color = m1.color * s1.diffuse * s1.shadow/2.;
                 color += s1.specular;
                 color *= s1.aoc;
-                color += m1.color * s1.amb *.09;
+                color += m1.color * s1.amb *.2;
             }
             break;
         }
