@@ -17,7 +17,7 @@ light l1;
 material m1,m2,m3;
 shading s1,s2,s3;
 
-vec3 color; // 'sky color'
+vec3 sky, color; // 'sky color'
 
 /* takes ~40-50ms on geforce 940m @ 1280x720 */
 
@@ -85,19 +85,18 @@ vec3 spectrum(float n) {
     return pal( n, vec3(0.5,0.5,0.5),vec3(0.5,0.5,0.5),vec3(1.0,1.0,1.0),vec3(0.0,0.33,0.67) );
 }
 
-shading get_shading(material m, light l, vec3 p, vec3 eye) {
+shading get_shading(material m, light l, vec3 p, vec3 n, vec3 eye) {
     shading s;
     float step;
     vec3 light_dir = normalize(l.position - p); // direction from p to light
-    vec3 normal = normal(p); // surface normal at point p
 
     // Diffuse shading using Lambertian reflectance
     // https://en.wikipedia.org/wiki/Lambertian_reflectance
-    s.diffuse = clamp(dot(normal,normalize(light_dir)), 0., 1.);
+    s.diffuse = clamp(dot(n,normalize(light_dir)), 0., 1.);
 
     // Specular reflections using phong
     // https://en.wikipedia.org/wiki/Phong_reflection_model
-    vec3 reflection_dir = normalize(reflect(-light_dir, normal));
+    vec3 reflection_dir = normalize(reflect(-light_dir, n));
     s.specular = clamp(m.reflection_ratio * pow(dot(reflection_dir, normalize(eye-p)), m.shininess), 0., 1.);
 
     // Shadows - basically raymarch towards the light
@@ -130,13 +129,13 @@ shading get_shading(material m, light l, vec3 p, vec3 eye) {
     step = .0;
     for (int k =0; k < 5; k++) {
         step += .04;
-        vec3 aoc_p = p + normal * step;
+        vec3 aoc_p = p + n * step;
         float diff = 1.5*abs(length(aoc_p-p) - scene(aoc_p));
         s.aoc = min(s.aoc, s.aoc-diff);
     }
 
     // Ambient light
-    s.amb = clamp(0.5+0.4*normal.y, 0., 1.);
+    s.amb = clamp(0.5+0.4*n.y, 0., 1.);
 
     return s;
 }
@@ -160,7 +159,8 @@ vec3 draw(in vec2 fragcoord) {
     l1.color = vec3(1.,1.,1.);
     l1.position = vec3(sin(time/4.)*4.,2.5,cos(time/4.)*3.);
     //l1.position = vec3(1.2, 2.0, -1.9);
-    color = vec3(.0);
+    sky = vec3(.0);
+    color = sky;
 
     // raymarch a scene
     float step = .0;
@@ -184,15 +184,15 @@ vec3 draw(in vec2 fragcoord) {
                 m1.color = ir_color2;
                 m1.reflection_ratio = .9;
                 m1.shininess = 0.9;
-                s1 = get_shading(m1, l1, p, eye);
+                s1 = get_shading(m1, l1, p, n, eye);
                 m2.color = vec3(1.);
                 m2.reflection_ratio = 2.9;
                 m2.shininess = 1.9;
-                s2 = get_shading(m2, l1, p, eye);
+                s2 = get_shading(m2, l1, p, n, eye);
                 m3.color = vec3(1.);
                 m3.reflection_ratio = 0.5;
                 m3.shininess = 0.1;
-                s3 = get_shading(m3, l1, p, eye);
+                s3 = get_shading(m3, l1, p, n, eye);
                 // mix it
                 color = ir_color2 * s1.diffuse * s1.shadow * 1.;
                 color += ir_color2*1.3 + s2.specular * .1;
@@ -211,7 +211,7 @@ vec3 draw(in vec2 fragcoord) {
                 m1.color = clamp(normalize(col), 0.0, 1.0);
                 m1.reflection_ratio = 3.5;
                 m1.shininess = 70.;
-                s1 = get_shading(m1, l1, p, eye);
+                s1 = get_shading(m1, l1, p, n, eye);
                 color = brightcon(m1.color, .1, 1.5) * s1.diffuse * 1.;
                 color += s1.specular;
                 //color *= s1.aoc;
@@ -227,7 +227,7 @@ vec3 draw(in vec2 fragcoord) {
                 m1.color = spectrum( dot(n + perturb * .05, eye) * 2.);
                 m1.reflection_ratio = .5;
                 m1.shininess = .1;
-                s1 = get_shading(m1, l1, p, eye);
+                s1 = get_shading(m1, l1, p, n, eye);
                 color = 0.01 - m1.color;
                 color += s1.specular;
                 color += m1.color * s1.amb * 0.5;
@@ -237,7 +237,7 @@ vec3 draw(in vec2 fragcoord) {
                 m1.color = vec3(checker);
                 m1.reflection_ratio = 0.01;
                 m1.shininess = 3.;
-                s1 = get_shading(m1, l1, p, eye);
+                s1 = get_shading(m1, l1, p, n, eye);
                 color = m1.color * s1.diffuse * s1.shadow/2.;
                 color += s1.specular;
                 color *= s1.aoc;
@@ -247,6 +247,9 @@ vec3 draw(in vec2 fragcoord) {
         }
         step += d;
     }
+
+    // Exponential distance fog
+    color = mix(color, 0.8 * sky, 1.0 - exp2(-0.010 * step * step));
 
     return color;
 }
