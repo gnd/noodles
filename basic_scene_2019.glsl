@@ -7,8 +7,8 @@ uniform sampler2D backbuffer;
 #define MAXDIST 20.0
 #define eps 0.0001
 #define SINBUMPS
-//#define REPEAT
 //#define REPEATPLANE
+//#define REPEAT
 //#define FLY
 
 struct march { float step; vec3 ro; vec3 rd; };
@@ -91,6 +91,15 @@ vec3 normal(vec3 p) {
                       k.yyx*scene( p + k.yyx*eps ) +
                       k.yxy*scene( p + k.yxy*eps ) +
                       k.xxx*scene( p + k.xxx*eps ) );
+}
+
+// from https://www.shadertoy.com/view/llcXWM
+vec3 pal( in float t, in vec3 a, in vec3 b, in vec3 c, in vec3 d ) {
+    return a + b*cos( 6.28318*(c*t+d) );
+}
+
+vec3 spectrum(float n) {
+    return pal( n, vec3(0.5,0.5,0.5),vec3(0.5,0.5,0.5),vec3(1.0,1.0,1.0),vec3(0.0,0.33,0.67) );
 }
 
 march refraction(vec3 p, vec3 rd, float eta) {
@@ -232,14 +241,18 @@ void main() {
                 }
                 // shading the object
                 if (scene_object(p) == scene(p)) {
+                    vec3 perturb = sin(p * 10.);
+                    vec3 icolor = spectrum( dot(normal(p) + perturb * .05, eye) * 2.);
+                    icolor = .7 -icolor;
                     m1.color = vec3(.0,0.,0.);
-                    m1.reflection_ratio = .9;
+                    m1.reflection_ratio = 1.5;
                     m1.shininess = 10.9;
                     s1 = get_shading(m1, l1, p, eye);
                     // check https://www.shadertoy.com/view/lsKcDD
-                    color += color * 0.9 + m1.color * s1.diffuse;// * s1.intensity *s1.shadow * .1;
-                    color += s1.specular;
-                    color += m1.color * s1.aoc * s1.amb * 0.2;
+                    color += icolor * 0.04;
+                    color += color * 0.1 + m1.color * s1.diffuse;// * s1.intensity *s1.shadow * .1;
+                    color += s1.specular *0.3;
+                    color += m1.color * s1.aoc * s1.amb * 0.01;
                 }
                 if (refracted) {
                     m1.color = vec3(0.,0.,1.);
