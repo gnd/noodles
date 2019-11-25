@@ -16,7 +16,6 @@ shading s1,s2,s3;
 
 vec3 sky, color; // 'sky color'
 
-
 float sphere( vec3 p, float r ) {
     return length(p) - r;
 }
