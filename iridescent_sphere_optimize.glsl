@@ -17,7 +17,8 @@ shading s1,s2,s3;
 vec3 sky, color; // 'sky color'
 
 /* un-optimized takes ~40ms on geforce 940m @ 1280x720
-   after optimization managed to get down to 14-20ms */
+   - after optimization managed to get down to 14-20ms
+   - further optimization got it down to 12-13ms */
 
 // Sinusoid bumps
 float sinbumps(in vec3 p, in float frq) {
@@ -145,23 +146,13 @@ void main() {
                 vec3 i = normalize(ro - pp);
                 vec3 ir = refract(i, n, 1./1.);
                 vec3 ir2 = refract(i, -n, 1./2.);
-                vec3 ir_color = vec3(cross(ir, n));
                 vec3 ir_color2 = vec3(cross(ir2, -n));
-                m1.reflection_ratio = .9;
-                m1.shininess = 0.9;
-                s1 = get_shading(m1, l1, p, n, ld, ed);
-                m1.reflection_ratio = 2.9;
-                m1.shininess = 1.9;
-                s2 = get_shading(m1, l1, p, n, ld, ed);
-                m1.reflection_ratio = 0.5;
-                m1.shininess = 0.1;
-                s3 = get_shading(m1, l1, p, n, ld, ed);
                 // mix it
-                color = ir_color2 * s1.diffuse * s1.shadow;
-                color += ir_color2*1.3 + s2.specular * .1;
-                color += s3.specular * 0.1;
-                color += ir_color * s1.specular * 2.5;
-                color += ir_color2 * s1.amb * 1.1;
+                color = ir_color2 * clamp(dot(n,ld), 0., 1.);
+                color += ir_color2*1.3 + clamp(2.9 * pow(dot(normalize(reflect(-ld, n)), ed), 1.9), 0., 1.) * .1;
+                color += clamp(.5 * pow(dot(normalize(reflect(-ld, n)), ed), .1), 0., 1.) * 0.1;
+                color += vec3(cross(ir, n)) * clamp(.9 * pow(dot(normalize(reflect(-ld, n)), ed), .9), 0., 1.) * 2.5;
+                color += ir_color2 * clamp(0.4*n.y+0.5, 0., 1.) * 1.1;
             }
             if (iridescent_sphere2(p, bumps) < eps) {
                 float nv = dot(n, -rd);
@@ -171,23 +162,18 @@ void main() {
                 col += sin(nv * vec3(0.0, 0.0, 1.0) * 5.0 * 1.5) * 0.5 + 0.5;
                 col = 1.1 - col;
                 m1.color = clamp(normalize(col), 0.0, 1.0);
-                m1.reflection_ratio = 3.5;
-                m1.shininess = 70.;
-                s1 = get_shading(m1, l1, p, n, ld, ed);
-                color = brightcon(m1.color, .1, 1.5) * s1.diffuse * 1.;
-                color += s1.specular;
-                color += m1.color * s1.amb * 1.1;
-                color += vec3(0.,0.,float(i)*(1./float(MAXSTEPS/3)))*.05;
+                color = brightcon(m1.color, .1, 1.5) * clamp(dot(n,ld), 0., 1.) * 1.;
+                color += clamp(3.5 * pow(dot(normalize(reflect(-ld, n)), ed), 70.), 0., 1.);;
+                color += m1.color * clamp(0.4*n.y+0.5, 0., 1.) * 1.1;
+                color += vec3(0.,0.,float(i)*(1./float(MAXSTEPS/3)))*.05; //glow
             }
             if (iridescent_sphere3(p, bumps) < eps) {
                 vec3 perturb = sin(p * 10.);
                 m1.color = spectrum( dot(perturb * .05 + n, ro) * 2.);
-                m1.reflection_ratio = .5;
-                m1.shininess = .1;
-                s1 = get_shading(m1, l1, p, n, ld, ed);
+                //s1 = get_shading(m1, l1, p, n, ld, ed);
                 color = 0.01 - m1.color;
-                color += s1.specular;
-                color += m1.color * s1.amb * 0.5;
+                color += clamp(.5 * pow(dot(normalize(reflect(-ld, n)), ed), .1), 0., 1.);
+                color += m1.color * clamp(0.4*n.y+0.5, 0., 1.) * 0.5;
             }
             if (plane(p) < eps) {
                 m1.color = vec3(mod(floor(p.x)+floor(p.z)-.5, 2.0));
