@@ -1,8 +1,9 @@
 #version 330
-uniform sampler2D backbuffer;
-out vec4 PixelColor;
 uniform vec2 resolution;
 uniform float time;
+uniform sampler2D backbuffer;
+uniform sampler2D sony;
+out vec4 PixelColor;
 
 /// PARAMS
 uniform float m0;
@@ -100,6 +101,7 @@ vec3 p3;
 float asp, spec;
 vec3 sky, color; // 'sky color'
 vec4 spheres[SPHERES];
+float speed = pow(1.01,100.);
 
 // Counter 0 to 1
 float cnt(int m) {
@@ -151,10 +153,13 @@ float blob (vec3 p) {
    return res;
 }
 
+float test(vec3 p) {
+	return box(p-vec3(0.,0.,time*speed+4), vec3(5.5, 3., 0.1), 0.);
+}
+
 float scene(vec3 p) {
-    //return min(plane(p), blob(p));
     return blend(blob(p), sinfield(p), 6.);
-//    return blob(p);
+	//return test(p);
 }
 
 // taken from http://iquilezles.org/www/articles/normalsSDF/normalsSDF.htm
@@ -197,7 +202,6 @@ vec3 feedb_sqr(in float xpos, in float ypos, in float xsiz, in float ysiz, in fl
 
 void main() {
     #ifdef FLY
-        float speed = pow(1.01,100.);
         vec3 ro = vec3(cos(time/3.), sin(time/3.)*3., time*speed);
         vec3 lookat = vec3(0.,0.,7.+time*speed);
         l1.position = vec3(cos(time)*10.,2.,sin(time)*10.+time*speed);
@@ -226,7 +230,7 @@ void main() {
         tmp.x = cos(time *.13 * (float( i )+2.));
         tmp.y = sin(time * .075 * (float( i )+4.));
         tmp.z = sin(time * .1 * (float( i )+3.3)) + time*speed+4.;
-        tmp.w = .1 * (sin(time * .1  *(float( i) +1.))+2.) + mx11*1.5;
+        tmp.w = .1 * (sin(time * .1  *(float( i) +1.))+2.) + mx11*2.5;
         spheres[i] = tmp;
     }
 
@@ -255,8 +259,9 @@ void main() {
                 color += clamp(.5 * pow(dot(normalize(reflect(-ld, n)), ed), .1), 0., 1.) * 0.1;
                 color += vec3(cross(ir, n)) * clamp(.9 * pow(dot(normalize(reflect(-ld, n)), ed), .9), 0., 1.) * 2.5;
                 color += ir_color2 * clamp(0.4*n.y+0.5, 0., 1.) * 1.1;
+				color = texture2D(sony, (vec2(p3.x+5.5,3.-p3.y))*vec2(.09,.16)).xyz;
             }
-            if (scene(p3*(1.-mx22)) < eps) {
+            if (scene(p3) < eps) {
                 float nv = dot(n, -rd);
                 vec3 col = vec3(0.);
                 col += sin(nv * vec3(0.0, 1.0, 0.0) * 10.0 * 1.5) * 0.5 + 0.5;
