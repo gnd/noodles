@@ -64,6 +64,19 @@ vec3 normal(vec3 p) {
                       k.xxx*scene( k.xxx*eps + p ) );
 }
 
+/* TODO
+// inspired by klems - a way to prevent the compiler from inlining map() 4 times
+vec3 n = vec3(0.0);
+for( int i=ZERO; i<4; i++ )
+{
+    vec3 e = 0.5773*(2.0*vec3((((i+3)>>1)&1),((i>>1)&1),(i&1))-1.0);
+    n += e*map(pos+0.0005*e).x;
+}
+return normalize(n);
+*/
+
+//TODO - replace plane with the normal plane
+
 // from https://alaingalvan.tumblr.com/post/79864187609/glsl-color-correction-shaders
 vec3 brightcon(vec3 c, float brightness, float contrast) {
     return (c - 0.5) * contrast + 0.5 + brightness;
