@@ -668,12 +668,12 @@ vec3 lights_dev(float type, vec3 cam_rot, float rotation, vec3 inColor) {
 
 
 void main(void) {
-	p = vec2( gl_FragCoord.x / resolution.x, gl_FragCoord.y / resolution.y);
+	p = gl_FragCoord.xy / resolution.xy;
 	asp = resolution.x / resolution.y;
 	c = ck;//cnt(50);
 	c = vec3(noise2f(p*rand*1000.)*mx91*m2,0.,0.);
 
-	c+=feedb_sqr(mx86, mx85, mx76*m1*7., mx75*m0*5., mx81, mx71, mx61, c)*mx51;
+	c+=feedb_sqr(mx86, mx85, mx76, mx75, mx81, mx71, mx61, c)*mx51;
 
 	float type = 0.;
 	vec3 cam_rotation = vec3(mx16*PI*cnt(5000),mx15*PI,mx14*PI);
