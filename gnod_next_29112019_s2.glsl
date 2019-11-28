@@ -81,9 +81,6 @@ float mx92 = m57/127.;
 float mx93 = m58/127.;
 float mx94 = m59/127.;
 ///////////////// END OF MIDIMIX ////////////////////
-#define MAXSTEPS 84
-#define MAXDIST 10.0
-//#define eps .001
 #define SPHERES 10
 #define FLY
 
@@ -95,9 +92,8 @@ light l1;
 material mat1;
 shading s1;
 
-vec2 p;
+vec2 p2;
 vec3 p3;
-bool sto1, sto2 = false;
 float asp, spec;
 vec3 sky, color; // 'sky color'
 vec4 spheres[SPHERES];
@@ -143,9 +139,14 @@ float blend(in float d1, in float d2, in float k) {
 	return k * d1 + (1.-k) * d2;
 }
 
+// Sinusoid bumps
+float sinbumps(in vec3 p){
+    float frq = 1.7;
+    return sin(p.x*frq+time*0.57)*atan(p.y*frq+time*2.17)*sin(p.z*frq-time*1.31)*sin(time)*1.7;
+}
 
+////////////////////////////////////////////// SCENE SETUP /////////////////////////////////////////////
 // precompute stuff
-// make this controllable by midimix
 #ifdef FLY
 	vec2 path2d = vec2(cos(time/3.)*speed_x, time*speed_z);
 	vec2 path2d_next = vec2(cos(time+2./3.)*speed_x, (time+2.)*speed_z);
@@ -153,7 +154,9 @@ float blend(in float d1, in float d2, in float k) {
 	// s1 / heightmap
 	vec3 path = vec3( path2d.x, mix(2.-noise2f(path2d.xy/10.)*10., sin(time/3.)*3., mx11), path2d.y );
 	vec3 path_next = vec3(path2d_next.x, mix(2.-noise2f(path2d_next.xy/10.)*10., 0., mx11), path2d_next.y );
-	float eps = mix(0.001, 0.0001, mx11);
+	float eps = mix(0.1, 0.01, mx11); // eps for iri2 texture needs to be also .001
+	int MAXSTEPS = int(mix(32, 84, mx11));
+	int MAXDIST = int(mix(20, 10, mx11));
 
 	vec3 ro = path;
 	vec3 lookat = path_next;
@@ -165,13 +168,12 @@ float blend(in float d1, in float d2, in float k) {
 	vec3 light_position = vec3(sin(time/4.)*4.,2.5,cos(time/4.)*3.);
 #endif
 
-
 /////////////////////////// DISTANCE FIELDS /////////////////////////////////////////////////////
 // Stripe
 vec3 str(in float xp, in float yp, in float x, in float y, in vec3 c, in vec3 col) {
         //float ys = y * asp;
         float ys=y;
-        vec3 cl = ((p.x > xp-x*.51) && (p.x < x*.51+xp) && (p.y > yp-ys*.51) && (p.y < ys*.51+yp)) ? -c+col : vec3(0.0);
+        vec3 cl = ((p2.x > xp-x*.51) && (p2.x < x*.51+xp) && (p2.y > yp-ys*.51) && (p2.y < ys*.51+yp)) ? -c+col : vec3(0.0);
         return cl;
 }
 
@@ -189,11 +191,11 @@ float sky_plane(vec3 p) {
 
 // taken from https://www.shadertoy.com/view/4ttGDH
 float sinfield (vec3 p) {
-    //p.xy -= camPath(p.z).xy;
     p.xy -= ro.xy;
-	p = cos(p*.315*1.25 + sin(p.zxy*.875*1.25*mx24*10.));
+	p = cos(p*.315*1.25*(1.-mx26) + sin(p.zxy*.875*1.25*mx25*10.));
+	float bumps = abs(sinbumps(p)+0.1)*mx24;
     float n = length(p);
-    return (n - 1.025)*1.33;
+    return (n - 1.025)*1.33-bumps;
 }
 
 // from https://www.shadertoy.com/view/4t2GDG
@@ -205,10 +207,20 @@ float blob (vec3 p) {
    return res;
 }
 
+float blob_sinfield(vec3 p) {
+	return smin(blob(p), sinfield(p), 6.); // gnod_next_s1
+}
+
 float scene(vec3 p) {
-	float s1 = smin(blob(p), sinfield(p), 6.); // gnod_next_s1
-	float s2 = min(plane(p), sky_plane(p)); // height_mapping
-	return blend(s1, s2, mx11);
+	float sto1 = 100.;
+	float sto2 = 100.;
+	if (mx11 > 0.) {
+		sto1 = blob_sinfield(p);
+	}
+	if (mx11 < 1.) {
+		sto2 = min(plane(p), sky_plane(p)); // height_mapping
+	}
+	return blend(sto1, sto2, mx11);
 }
 
 // taken from http://iquilezles.org/www/articles/normalsSDF/normalsSDF.htm
@@ -237,7 +249,7 @@ vec3 spectrum(float n) {
 
 // Feedback
 vec3 feedb_sqr(in float xpos, in float ypos, in float xsiz, in float ysiz, in float bsiz, in vec3 c) {
-    vec3 ccc = texture2D(backbuffer, (vec2(p.x,p.y)-0.51)*bsiz*1.5+0.51).xyz;
+    vec3 ccc = texture2D(backbuffer, (vec2(p2.x,p2.y)-0.51)*bsiz*1.5+0.51).xyz;
     c+=str(xpos,ypos,xsiz,ysiz,c,ccc);
 	return c;
 }
@@ -257,7 +269,7 @@ void main() {
 
 	// feedback - front
     asp = resolution.x / resolution.y;
-    p = gl_FragCoord.xy / resolution;
+    p2 = gl_FragCoord.xy / resolution;
     color += feedb_sqr(mx76, mx75, mx66, mx65, mx74+m1*.1, color)*mx71*1.05*mx73;
 
     // setup spheres
@@ -265,7 +277,7 @@ void main() {
     for( int i = 0; i < SPHERES; i++ ) {
         tmp.x = cos(time *.13 * (float( i )+2.));
         tmp.y = sin(time * .075 * (float( i )+4.));
-        tmp.z = sin(time * .1 * (float( i )+3.3)) + time*speed+4.;
+        tmp.z = sin(time * .1 * (float( i )+3.3)) + path2d.y + 4.;
         tmp.w = .1 * (sin(time * .1  *(float( i) +1.))+2.) + mx21*2.5;
         spheres[i] = tmp;
     }
@@ -283,32 +295,30 @@ void main() {
             vec3 n = normal(p3);
             vec3 ld = normalize(l1.position-p3);
             vec3 ed = normalize(ro-p3);
-            if (scene(p3) < eps) {
-                /*vec3 pp = mod(p3*100., 2.) - .5;
-                vec3 i = normalize(ro - pp);
-                vec3 ir = refract(i, n, 1./1.);
-                vec3 ir2 = refract(i, -n, 1./2.);
-                vec3 ir_color2 = vec3(cross(ir2, -n));
-                // mix it
-                color = ir_color2 * clamp(dot(n,ld), 0., 1.);
-                color += ir_color2*1.3 + clamp(2.9 * pow(dot(normalize(reflect(-ld, n)), ed), 1.9), 0., 1.) * .1;
-                color += clamp(.5 * pow(dot(normalize(reflect(-ld, n)), ed), .1), 0., 1.) * 0.1;
-                color += vec3(cross(ir, n)) * clamp(.9 * pow(dot(normalize(reflect(-ld, n)), ed), .9), 0., 1.) * 2.5;
-                color += ir_color2 * clamp(0.4*n.y+0.5, 0., 1.) * 1.1;
-				color = texture2D(sony, (vec2(p3.x+5.5,3.-p3.y))*vec2(.09,.16)).xyz;
-				*/
-            }
-            if (scene(p3) < eps) {
-				// needs eps >= .001
-                float nv = dot(n, -rd);
-                vec3 col = vec3(0.);
-                col += sin(nv * vec3(0.0, 1.0, 0.0) * 10.0 * 1.5) * 0.5 + 0.5;
-                col += sin(nv * vec3(1.0, 0.0, 0.0) * 20.0 * 1.5) * 0.5 + 0.5;
-                col += sin(nv * vec3(0.0, 0.0, 1.0) * 5.0 * 1.5) * 0.5 + 0.5;
-                col = 1.1 - col;
-                mat1.color = clamp(normalize(col), 0.0, 1.0);
-                spec = clamp(3.5 * pow(dot(normalize(reflect(-ld, n)), ed), 70.), 0., 1.);;
-                color += mat1.color * clamp(0.4*n.y+0.5, 0., 1.) * 3.;
+            if (blob_sinfield(p3) < eps) {
+				if (mx22 == 0) {
+					vec3 pp = mod(p3*100., 2.) - .5;
+					vec3 i = normalize(ro - pp);
+					vec3 ir = refract(i, n, 1./1.);
+					vec3 ir2 = refract(i, -n, 1./2.);
+					vec3 ir_color2 = vec3(cross(ir2, -n));
+					// mix it
+					color = ir_color2 * clamp(dot(n,ld), 0., 1.);
+					color += ir_color2*1.3 + clamp(2.9 * pow(dot(normalize(reflect(-ld, n)), ed), 1.9), 0., 1.) * .1;
+					color += clamp(.5 * pow(dot(normalize(reflect(-ld, n)), ed), .1), 0., 1.) * 0.1;
+					color += vec3(cross(ir, n)) * clamp(.9 * pow(dot(normalize(reflect(-ld, n)), ed), .9), 0., 1.) * 2.5;
+					color += ir_color2 * clamp(0.4*n.y+0.5, 0., 1.) * 1.1;
+				} else {
+					float nv = dot(n, -rd);
+					vec3 col = vec3(0.);
+					col += sin(nv * vec3(0.0, 1.0, 0.0) * 10.0 * 1.5) * 0.5 + 0.5;
+					col += sin(nv * vec3(1.0, 0.0, 0.0) * 20.0 * 1.5) * 0.5 + 0.5;
+					col += sin(nv * vec3(0.0, 0.0, 1.0) * 5.0 * 1.5) * 0.5 + 0.5;
+					col = 1.1 - col;
+					mat1.color = clamp(normalize(col), 0.0, 1.0);
+					spec = clamp(3.5 * pow(dot(normalize(reflect(-ld, n)), ed), 70.), 0., 1.);;
+					color += mat1.color * clamp(0.4*n.y+0.5, 0., 1.) * 3.;
+				}
             }
 			if (plane(p3) < eps) {
 
@@ -328,8 +338,8 @@ void main() {
                 col += sin(nv * vec3(1.0, 0.0, 0.0) * 20.0 * 1.5) * 0.5 + 0.5;
                 col += sin(nv * vec3(0.0, 0.0, 1.0) * 5.0 * 1.5) * 0.5 + 0.5;
                 col = 1.1 - col;
-                mat1.color += clamp(normalize(col), 0.0, 1.0);
-                color += brightcon(mat1.color, .1, 1.5) * clamp(dot(n,ld), 0., 1.) * 1.;
+                mat1.color = clamp(normalize(col), 0.0, 1.0);
+                color = brightcon(mat1.color, .1, 1.5) * clamp(dot(n,ld), 0., 1.) * 1.;
                 color += clamp(3.5 * pow(dot(normalize(reflect(-ld, n)), ed), 70.), 0., 1.);;
                 color += mat1.color * clamp(0.4*n.y+0.5, 0., 1.) * 1.1;
                 color += vec3(0.,0.,float(i)*(1./float(MAXSTEPS/3)))*.05; //glow
@@ -358,21 +368,19 @@ void main() {
                 color += vec3(0.,0.,float(i)*(1./float(MAXSTEPS/3)))*.05; //glow
 
             }
-			color += vec3(0.,0.,float(i)*(1./float(MAXSTEPS)))*0.2; //glow
             break;
         }
+		color += vec3(0.,0.,mix(float(i)*(1./float(MAXSTEPS)), 0., mx11)*0.2);
         step += d;
     }
 
     // Exponential distance fog
-    color = mix(color, 0.8 * sky, 1.0 - exp2(-0.010 * step * step));
+    //color = mix(color, 0.8 * sky, 1.0 - exp2(-0.010 * step * step));
 
     // gamma correction
     color = mix(color, pow(color, vec3(1.0/2.2)), mx82);
 
 	// feedback - back
-	asp = resolution.x / resolution.y;
-	p = gl_FragCoord.xy / resolution;
 	color += feedb_sqr(mx76, mx75, mx66, mx65, mx74+m1*.1, color)*mx71*1.05*mx72;
 
     // channel mix
