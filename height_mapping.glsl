@@ -2,10 +2,9 @@
 out vec4 PixelColor;
 uniform vec2 resolution;
 uniform float time;
-uniform sampler2D sony;
-#define MAXSTEPS 128
+#define MAXSTEPS 32
 #define MAXDIST 20.0
-#define eps 0.0001
+#define eps 0.0001 // at least 0.0001 for iridescence to show up
 #define FLY
 
 struct light { vec3 position; vec3 color; };
@@ -20,19 +19,13 @@ vec3 sky, color; // 'sky color'
 float speed_z = 4.;
 float speed_x = speed_z * .5;
 vec2 xz = vec2(cos(time/3.)*speed_x,time*speed_z);
-vec3 light_position = vec3(xz.x + sin(time/4.)*0.,2.,xz.y + 8. + cos(time/4.)*0.);
+vec3 light_position = vec3(xz.x + sin(time/4.)*0.,2.,xz.y + cos(time/4.)*0.);
 
 // Random number generator
-// implementation found at: lumina.sourceforge.net/Tutorials/Noise.html
+// lumina.sourceforge.net/Tutorials/Noise.html
 float rnd(vec2 co){
         float k = sin(dot(co.xy ,vec2(12.9898,78.233)));
         return fract(k + k);
-}
-
-//https://www.shadertoy.com/view/XsXfRH
-float hash(vec3 p) {
-    p  = 50.0*fract( p*0.3183099 + vec3(0.71,0.113,0.419));
-    return -1.0+2.0*fract( p.x*p.y*p.z*(p.x+p.y+p.z) );
 }
 
 // http://www.iquilezles.org/www/articles/morenoise/morenoise.htm
@@ -50,35 +43,6 @@ float sphere(vec3 p, float r ) {
     return length(p) - r;
 }
 
-float maxcomp(in vec3 p ) {
-    return max(p.x,max(p.y,p.z));
-}
-
-float box(vec3 p, vec3 b, float r) {
-    vec3 d = abs(p) - b;
-    return min(maxcomp(d),0.0) - r + length(max(d,0.0));
-}
-
-float hm1(vec2 p) {
-    return sin(p.r)*cos(p.g);
-}
-
-vec3 mask(vec3 p) {
-    return (((p.x > 9) || (p.x < -11.)) || ((p.z > 4.) || (p.z < -6.))) ? vec3(0.) : vec3(1.);
-}
-
-vec3 texcol(vec3 p) {
-    vec3 image = texture2D(sony, (vec2(9.-p.x,4.-p.z))*vec2(.05,.1)).xyz;
-    return image;
-}
-
-float tex(vec3 p) {
-    return dot(texcol(p), vec3(0.299, 0.587, 0.114))*2.;
-}
-
-float hm2(vec3 p) {
-    return tex(p);
-}
 
 float plane(vec3 p) {
 	return p.y + noise2f(p.xz/10.)*10. + noise2f(p.xz) + noise2f(p.xz*5.)*.1;
@@ -94,6 +58,7 @@ float lightsphere(vec3 p) {
 
 float scene(vec3 p) {
     return min(plane(p), sky_plane(p));
+    //return plane(p);
 }
 
 // taken from http://iquilezles.org/www/articles/normalsSDF/normalsSDF.htm
@@ -119,7 +84,7 @@ vec3 spectrum(float n) {
     return pal( n, vec3(0.5,0.5,0.5),vec3(0.5,0.5,0.5),vec3(1.0,1.0,1.0),vec3(0.0,0.33,0.67) );
 }
 
-shading get_simple(material m, vec3 n, vec3 ld, vec3 ed) {
+shading simple_shading(material m, vec3 n, vec3 ld, vec3 ed) {
     shading s;
     s.diffuse = clamp(dot(n,ld), 0., 1.);
     s.specular = clamp(m.reflection_ratio * pow(dot(normalize(reflect(-ld, n)), ed), m.shininess), 0., 1.);
@@ -132,11 +97,10 @@ shading get_shading(material m, light l, vec3 p, vec3 n, vec3 ld, vec3 ed) {
     float step;
     s.diffuse = clamp(dot(n,ld), 0., 1.);
     s.specular = clamp(m.reflection_ratio * pow(dot(normalize(reflect(-ld, n)), ed), m.shininess), 0., 1.);
-
     s.shadow = 1.;
+    /*
     step = 0.01;
     float ph = 1e10;
-    /*
     for (int i = 0; i < MAXSTEPS/3; i++ ) {
         vec3 shadow_p = ld * step + p;
         float shadow_d = scene(shadow_p);
@@ -156,13 +120,10 @@ shading get_shading(material m, light l, vec3 p, vec3 n, vec3 ld, vec3 ed) {
     s.shadow = clamp(s.shadow, 0., 1.);
     s.aoc = 1.;
     s.amb = clamp(0.4*n.y+0.5, 0., 1.);
-
     return s;
 }
 
 void main() {
-    speed_z = 4.;
-    speed_x = speed_z * .5;
     #ifdef FLY
         xz = vec2(cos(time/3.)*speed_x,time*speed_z);
         vec2 xz_ahead = vec2(cos(time+2./3.)*speed_x,(time+2.)*speed_z);
@@ -201,6 +162,7 @@ void main() {
             vec3 ld = normalize(l1.position-p);
             vec3 ed = normalize(ro-p);
             if (plane(p) < eps) {
+
                 /*
                 vec3 perturb = sin(p * .001);
                 m1.color = spectrum( dot(perturb * .05 + n, ro) * 2.);
@@ -208,7 +170,8 @@ void main() {
                 color += clamp(.5 * pow(dot(normalize(reflect(-ld, n)), ed), .1), 0., 1.) * 2.;
                 color += m1.color * clamp(0.4*n.y+0.5, 0., 1.) * .5;
                 */
-                /*
+
+                // better suited if light a bit upfront here 
                 float nv = dot(n, -rd);
                 vec3 col = vec3(0.);
                 col += sin(nv * vec3(0.0, 1.0, 0.0) * 10.0 * 1.5) * 0.5 + 0.5;
@@ -220,9 +183,10 @@ void main() {
                 color += clamp(3.5 * pow(dot(normalize(reflect(-ld, n)), ed), 70.), 0., 1.);;
                 color += m1.color * clamp(0.4*n.y+0.5, 0., 1.) * 1.1;
                 color += vec3(0.,0.,float(i)*(1./float(MAXSTEPS/3)))*.05; //glow
-                */
+
             }
             if (sky_plane(p) < eps) {
+
                 /*
                 vec3 perturb = sin(p * .001);
                 m1.color = spectrum( dot(perturb * .05 + n, ro) * 2.);
@@ -230,7 +194,7 @@ void main() {
                 color += clamp(.5 * pow(dot(normalize(reflect(-ld, n)), ed), .1), 0., 1.) * 2.;
                 color += m1.color * clamp(0.4*n.y+0.5, 0., 1.) * 1.5;
                 */
-                /*
+
                 float nv = dot(n, -rd);
                 vec3 col = vec3(0.);
                 col += sin(nv * vec3(0.0, 1.0, 0.0) * 10.0 * 1.5) * 0.5 + 0.5;
@@ -242,16 +206,13 @@ void main() {
                 color += clamp(3.5 * pow(dot(normalize(reflect(-ld, n)), ed), 70.), 0., 1.);;
                 color += m1.color * clamp(0.4*n.y+0.5, 0., 1.) * 1.1;
                 color += vec3(0.,0.,float(i)*(1./float(MAXSTEPS/3)))*.05; //glow
-                */
+
             }
             break;
         }
         color += vec3(0.,0.,float(i)*(1./float(MAXSTEPS)))*0.2; //glow
         step += d;
     }
-
-    // Exponential distance fog
-    //color = mix(color, 0.8 * sky, .7 - exp2(-0.01 * step * step));
 
     // gamma correction
     color = pow( color, vec3(1.0/2.2) );
