@@ -1,11 +1,10 @@
-#version 460
+#version 330
 out vec4 PixelColor;
 uniform vec2 resolution;
 uniform float time;
-uniform sampler2D backbuffer;
-#define MAXSTEPS 128
+#define MAXSTEPS 64
 #define MAXDIST 20.0
-#define eps 0.0001
+#define eps 0.01
 #define SINBUMPS
 //#define REPEATPLANE
 //#define REPEAT
@@ -14,7 +13,7 @@ uniform sampler2D backbuffer;
 struct march { float step; vec3 ro; vec3 rd; };
 struct light { vec3 position; vec3 color; };
 struct material { vec3 color; float reflection_ratio; float shininess; };
-struct shading { float diffuse; float specular; float intensity; float shadow; float aoc; float amb; };
+struct shading { float diffuse; float specular; float shadow; float aoc; float amb; };
 
 light l1;
 material m1,m2;
@@ -32,7 +31,7 @@ float smin( float a, float b, float k ) {
 // Sinusoid bumps
 float sinbumps(in vec3 p){
     float frq = 1.7;
-    return sin(p.x*frq+time*0.57)*atan(p.y*frq+time*2.17)*sin(p.z*frq-time*1.31)*sin(time)*2.;
+    return sin(p.x*frq+time*0.57)*atan(p.y*frq+time*2.17)*sin(p.z*frq-time*1.31)*sin(time)*1.7;
 }
 
 float simple_bumps(in vec3 p) {
@@ -44,13 +43,14 @@ float sphere( vec3 p, float r ) {
     return length(p) - r;
 }
 
-float maxcomp(in vec3 p ) {
+float vmax(in vec3 p ) {
     return max(p.x,max(p.y,p.z));
 }
 
-float box(vec3 p, vec3 b, float r) {
-    vec3 d = abs(p) - b;
-    return min(maxcomp(d),0.0) - r + length(max(d,0.0));
+// Cheap Box: distance to corners is overestimated
+// from http://mercury.sexy/hg_sdf/
+float cbox(vec3 p, vec3 b) { //cheap box
+	return vmax(abs(p) - b);
 }
 
 float scene_plane(vec3 p) {
@@ -60,10 +60,10 @@ float scene_plane(vec3 p) {
         p.z = mod(p.z,10.) - 5.;
     #endif
     #ifdef SINBUMPS
-        float plane_field = box(vec3(p.x,p.y+sinbumps(p),p.z)-vec3(.0,-1.*height,.0), vec3(20.,.01,20.), .0);
+        float plane_field = cbox(vec3(p.x,p.y+sinbumps(p),p.z)-vec3(.0,-1.*height,.0), vec3(20.,.01,20.));
         //float plane_field = box(vec3(p.x,p.y+simple_bumps(p),p.z)-vec3(.0,-1.*height,.0), vec3(20.,.01,20.), .0);
     #else
-        float plane_field = box(p-vec3(.0,-1.*height,.0), vec3(20.,.01,20.), .0);
+        float plane_field = cbox(p-vec3(.0,-1.*height,.0), vec3(20.,.01,20.));
     #endif
     return plane_field;
 }
@@ -73,7 +73,7 @@ float scene_object(vec3 p) {
         p.x = mod(p.x,1.) - .5;
         p.z = mod(p.z,2.) - 1.;
     #endif
-    return smin(box(p, vec3(.1,.1,2.), .0), smin(box(p, vec3(1.,0.1,0.1),0.),sphere(p,.333), .4), .4);
+    return smin(cbox(p, vec3(.1,.1,2.)), smin(cbox(p, vec3(1.,0.1,0.1)),sphere(p,.333), .4), .4);
 }
 
 float glass_sphere(vec3 p) {
@@ -102,10 +102,9 @@ vec3 spectrum(float n) {
     return pal( n, vec3(0.5,0.5,0.5),vec3(0.5,0.5,0.5),vec3(1.0,1.0,1.0),vec3(0.0,0.33,0.67) );
 }
 
-march refraction(vec3 p, vec3 rd, float eta) {
+march refraction(vec3 p, vec3 n, vec3 rd, float eta) {
     // Glass becomes a 'portal' through which refracted rays keep on raymarching
     march march;
-    vec3 n = normal(p);
     march.ro = p;
     march.rd = normalize(refract(rd, n, eta));
     march.step = 0.0;
@@ -125,59 +124,34 @@ march refraction(vec3 p, vec3 rd, float eta) {
     return march;
 }
 
-shading get_shading(material m, light l, vec3 p, vec3 eye) {
+shading get_shading(material m, light l, vec3 p, vec3 n, vec3 ld, vec3 ed) {
     shading s;
     float step;
-    vec3 light_dir = l.position-p; // direction from p to light
-    vec3 normal = normal(p); // surface normal at point p
+    s.diffuse = clamp(dot(n,ld), 0., 1.);
+    s.specular = clamp(m.reflection_ratio * pow(dot(normalize(reflect(-ld, n)), ed), m.shininess), 0., 1.);
 
-    // Diffuse shading using Lambertian reflectance
-    // https://en.wikipedia.org/wiki/Lambertian_reflectance
-    s.diffuse = clamp(dot(normal,normalize(light_dir)), 0., 1.);
-
-    // Specular reflections using phong
-    // https://en.wikipedia.org/wiki/Phong_reflection_model
-    vec3 reflection_dir = normalize(reflect(-light_dir, normal));
-    s.specular = clamp(m.reflection_ratio * pow(dot(reflection_dir, normalize(eye-p)), m.shininess), 0., 1.);
-
-    // Determine intensity of light at p
-    float light_dist = scene(l.position);
-    s.intensity = light_dist/length(light_dir);
-    s.intensity = pow(s.intensity, 1.);
-
-    // Shadows - basically raymarch towards the light
-    // If the path from p to each light source is obstructed add shadow
     s.shadow = 1.;
-    step = 0.0025;
+    step = 0.01;
+    float ph = 1e10;
     for (int i = 0; i < MAXSTEPS/3; i++ ) {
-        vec3 shadow_p = p + normalize(light_dir) * step;
+        vec3 shadow_p = ld * step + p;
         float shadow_d = scene(shadow_p);
-        if (shadow_d > length(light_dir)) {
-            break;
-        }
-        if ((shadow_d < eps) || (step > MAXDIST*2)) {
+        if (shadow_d < eps) {
             s.shadow = 0.;
             break;
         }
-        // check http://www.iquilezles.org/www/articles/rmshadows/rmshadows.htm
-        s.shadow = min( s.shadow, 32.*shadow_d/step );
+        if (step > MAXDIST) {
+            break;
+        }
+        float y = pow(shadow_d, 2)/(2.0*ph);
+        float d = sqrt(shadow_d*shadow_d-y*y);
+        s.shadow = min( s.shadow, 32.*d/max(.0,step-y));
+        ph = shadow_d;
         step += shadow_d;
     }
     s.shadow = clamp(s.shadow, 0., 1.);
-
-    // Ambient occlusion
-    // Raymarch along normal a few steps, if hit a surface add shadow
     s.aoc = 1.;
-    step = .0;
-    for (int k =0; k < 5; k++) {
-        step += .04;
-        vec3 aoc_p = p + normal * step;
-        float diff = 1.5*abs(length(aoc_p-p) - scene(aoc_p));
-        s.aoc = min(s.aoc, s.aoc-diff);
-    }
-
-    // Ambient light
-    s.amb = clamp(0.5+0.4*normal.y, 0., 1.);
+    s.amb = clamp(0.4*n.y+0.5, 0., 1.);
 
     return s;
 }
@@ -190,7 +164,7 @@ void main() {
     #else
         vec3 eye = vec3(cos(time/3.)*3., sin(time/3.)*0. + 2., sin(time/3.)*3.);
         vec3 lookat = vec3(0.,0.,0.);
-        l1.position = vec3(cos(time)*3.,2.,sin(time)*3.); // light position
+        l1.position = vec3(cos(time)*5.,4.,sin(time)*5.); // light position
     #endif
 
     vec3 fwd = normalize(lookat-eye);
@@ -211,7 +185,7 @@ void main() {
     float step = .0;
     vec3 p, p_refr;
     for (int i = 0; i < MAXSTEPS; ++i) {
-        p = ro + rd * step;
+        p = rd * step + ro;
         float d = scene(p);
         // if ray doesnt hit any surface, kill it after being longer than MAXDIST
         if (d > MAXDIST) {
@@ -219,47 +193,43 @@ void main() {
         }
         // if ray very close to a surface, find out how to color that surface AKA what color is the pixel
         if (d < eps) {
-            if (scene(p) == glass_sphere(p)) {
+            // precompute stuff
+            vec3 n = normal(p);
+            vec3 ld = normalize(l1.position-p);
+            vec3 ed = normalize(ro-p);
+            if (glass_sphere(p) < eps) {
                 // Compute refraction
                 p_refr = p;
                 refracted = true;
-                march march = refraction(p, rd, 1./2.22);
+                march march = refraction(p, n, rd, 1./2.22);
                 step = march.step;
                 rd = march.rd;
                 ro = march.ro;
             } else {
                 // shading the plane
-                if (scene_plane(p) == scene(p)) {
+                if (scene_plane(p) < eps) {
                     m2.color = vec3(0.,0.,1.)*10.;
                     m2.reflection_ratio = 0.9;
                     m2.shininess = 100.9;
-                    s2 = get_shading(m2, l1, p, eye);
-                    // check https://www.shadertoy.com/view/lsKcDD
-                    color += m2.color * s2.diffuse * s2.intensity * s2.shadow * 2.;
+                    s2 = get_shading(m2, l1, p, n, ld, ed);
+                    color += m2.color * s2.diffuse * s2.shadow * 2.;
                     color += s2.specular;
-                    color += m2.color * s2.aoc * s2.amb * 0.2;
+                    color += m2.color * s2.amb * 0.05;
                 }
                 // shading the object
-                if (scene_object(p) == scene(p)) {
+                if (scene_object(p) < eps) {
                     vec3 perturb = sin(p * 10.);
                     vec3 icolor = spectrum( dot(normal(p) + perturb * .05, eye) * 2.);
                     icolor = .7 -icolor;
                     m1.color = vec3(.0,0.,0.);
-                    m1.reflection_ratio = 1.5;
-                    m1.shininess = 10.9;
-                    s1 = get_shading(m1, l1, p, eye);
-                    // check https://www.shadertoy.com/view/lsKcDD
+                    s1 = get_shading(m1, l1, p, n, ld, ed);
                     color += icolor * 0.04;
-                    color += color * 0.1 + m1.color * s1.diffuse;// * s1.intensity *s1.shadow * .1;
-                    color += s1.specular *0.3;
-                    color += m1.color * s1.aoc * s1.amb * 0.01;
+                    color += color * 0.1 + m1.color * clamp(dot(n,ld), 0., 1.);
+                    color += clamp(1.5 * pow(dot(normalize(reflect(-ld, n)), ed), 10.9), 0., 1.) * .3;
+                    color += m1.color * clamp(0.4*n.y+0.5, 0., 1.) * 0.01;
                 }
                 if (refracted) {
-                    m1.color = vec3(0.,0.,1.);
-                    m1.reflection_ratio = 10.9;
-                    m1.shininess = 100.9;
-                    s1 = get_shading(m1, l1, p_refr, eye);
-                    color += s1.specular*10.;
+                    color += clamp(10.9 * pow(dot(normalize(reflect(-ld, n)), ed), 100.9), 0., 1.) * 10.;
                 }
                 break;
             }
