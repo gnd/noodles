@@ -54,18 +54,18 @@ float cbox(vec3 p, vec3 b) { //cheap box
 }
 
 float scene_plane(vec3 p) {
-    float height = .5;
     #ifdef REPEATPLANE
         p.x = mod(p.x,10.) - 5.;
         p.z = mod(p.z,10.) - 5.;
     #endif
     #ifdef SINBUMPS
-        float plane_field = cbox(vec3(p.x,p.y+sinbumps(p),p.z)-vec3(.0,-1.*height,.0), vec3(20.,.01,20.));
-        //float plane_field = box(vec3(p.x,p.y+simple_bumps(p),p.z)-vec3(.0,-1.*height,.0), vec3(20.,.01,20.), .0);
+        // cbox-based
+        //return cbox(vec3(p.x,p.y+sinbumps(p),p.z)+vec3(.0,.5,.0), vec3(20.,.01,20.));
+        return p.y + sinbumps(p) + .5;
     #else
-        float plane_field = cbox(p-vec3(.0,-1.*height,.0), vec3(20.,.01,20.));
+        // cbox-based
+        // return cbox(p+vec3(.0,.5,.0), vec3(20.,.01,20.));
     #endif
-    return plane_field;
 }
 
 float scene_object(vec3 p) {
