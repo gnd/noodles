@@ -164,6 +164,7 @@ void main() {
             if (plane(p) < eps) {
 
                 /*
+                // needs eps at least <= 0.0001
                 vec3 perturb = sin(p * .001);
                 m1.color = spectrum( dot(perturb * .05 + n, ro) * 2.);
                 color = 0.02 - m1.color;
@@ -171,7 +172,7 @@ void main() {
                 color += m1.color * clamp(0.4*n.y+0.5, 0., 1.) * .5;
                 */
 
-                // better suited if light a bit upfront here 
+                // better suited if light a bit upfront here
                 float nv = dot(n, -rd);
                 vec3 col = vec3(0.);
                 col += sin(nv * vec3(0.0, 1.0, 0.0) * 10.0 * 1.5) * 0.5 + 0.5;
