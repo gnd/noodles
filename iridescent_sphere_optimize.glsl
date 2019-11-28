@@ -3,7 +3,7 @@ out vec4 PixelColor;
 uniform vec2 resolution;
 uniform float time;
 #define MAXSTEPS 128
-#define MAXDIST 20.0
+#define MAXDIST 8
 #define eps 0.001
 
 struct light { vec3 position; vec3 color; };
@@ -18,20 +18,21 @@ vec3 sky, color; // 'sky color'
 
 /* un-optimized takes ~40ms on geforce 940m @ 1280x720
    - after optimization managed to get down to 14-20ms
-   - further optimization got it down to 12-13ms */
+   - further optimization got it down to 10-11ms */
 
 // Sinusoid bumps
 float sinbumps(in vec3 p, in float frq) {
     return sin(p.x*frq) * sin(p.y*frq+time) * sin(p.z*frq) * .11;
 }
 
-float maxcomp(in vec3 p ) {
+float vmax(in vec3 p ) {
     return max(p.x,max(p.y,p.z));
 }
 
-float box(vec3 p, vec3 b, float r) {
-    vec3 d = abs(p) - b;
-    return min(maxcomp(d),0.0) - r + length(max(d,0.0));
+// Cheap Box: distance to corners is overestimated
+// from http://mercury.sexy/hg_sdf/
+float cbox(vec3 p, vec3 b) { //cheap box
+	return vmax(abs(p) - b);
 }
 
 float iridescent_sphere1(vec3 p, float bumps) {
@@ -47,7 +48,7 @@ float iridescent_sphere3(vec3 p, float bumps) {
 }
 
 float plane(vec3 p) {
-    return box(p-vec3(.0,-1.*.5,.0), vec3(15.,.01,15.), .0);
+    return cbox(p+vec3(0.,.5,.0), vec3(15.,.01,15.));
 }
 
 float scene(vec3 p) {
@@ -64,18 +65,16 @@ vec3 normal(vec3 p) {
                       k.xxx*scene( k.xxx*eps + p ) );
 }
 
-/* TODO
-// inspired by klems - a way to prevent the compiler from inlining map() 4 times
-vec3 n = vec3(0.0);
-for( int i=ZERO; i<4; i++ )
-{
-    vec3 e = 0.5773*(2.0*vec3((((i+3)>>1)&1),((i>>1)&1),(i&1))-1.0);
-    n += e*map(pos+0.0005*e).x;
-}
-return normalize(n);
-*/
-
-//TODO - replace plane with the normal plane
+/* same speed as standard notation above ^^
+vec3 normal(vec3 p) {
+    // inspired by klems - a way to prevent the compiler from inlining map() 4 times
+    vec3 n = vec3(0.0);
+    for (int i = 0; i < 4; i++) {
+        vec3 e = 0.5773*(2.0*vec3((((i+3)>>1)&1),((i>>1)&1),(i&1))-1.0);
+        n += e*scene(p+0.0005*e);
+    }
+    return normalize(n);
+}*/
 
 // from https://alaingalvan.tumblr.com/post/79864187609/glsl-color-correction-shaders
 vec3 brightcon(vec3 c, float brightness, float contrast) {
