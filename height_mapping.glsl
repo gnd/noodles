@@ -17,6 +17,10 @@ material m1;
 shading s1;
 
 vec3 sky, color; // 'sky color'
+float speed_z = 4.;
+float speed_x = speed_z * .5;
+vec2 xz = vec2(cos(time/3.)*speed_x,time*speed_z);
+vec3 light_position = vec3(xz.x + sin(time/4.)*0.,2.,xz.y + 8. + cos(time/4.)*0.);
 
 // Random number generator
 // implementation found at: lumina.sourceforge.net/Tutorials/Noise.html
@@ -42,7 +46,7 @@ float noise2f( in vec2 p ) {
         return res - 0.25;
 }
 
-float sphere( vec3 p, float r ) {
+float sphere(vec3 p, float r ) {
     return length(p) - r;
 }
 
@@ -82,6 +86,10 @@ float plane(vec3 p) {
 
 float sky_plane(vec3 p) {
 	return -p.y + 10. - noise2f(p.xz/10.)*10. + noise2f(p.xz) + noise2f(p.xz*5.)*.1;
+}
+
+float lightsphere(vec3 p) {
+    return sphere(p, 2.);
 }
 
 float scene(vec3 p) {
@@ -153,14 +161,14 @@ shading get_shading(material m, light l, vec3 p, vec3 n, vec3 ld, vec3 ed) {
 }
 
 void main() {
-    float speed_z = 4.;
-    float speed_x = speed_z * .5;
+    speed_z = 4.;
+    speed_x = speed_z * .5;
     #ifdef FLY
-        vec2 xz = vec2(cos(time/3.)*speed_x,time*speed_z);
+        xz = vec2(cos(time/3.)*speed_x,time*speed_z);
         vec2 xz_ahead = vec2(cos(time+2./3.)*speed_x,(time+2.)*speed_z);
         vec3 ro = vec3(xz.x,2.-noise2f(xz.xy/10.)*10.,xz.y);
         vec3 lookat = vec3(xz_ahead.x,2.-noise2f(xz_ahead.xy/10.)*10.,xz_ahead.y);
-        l1.position = vec3(xz.x + sin(time/4.)*4.,2.,xz.y + cos(time/4.)*8.);
+        l1.position = light_position;
     #else
         vec3 ro = vec3(cos(time/4.)*5., 5., sin(time/4.)*5.); // ray origin, here also known as 'eye'
         vec3 lookat = vec3(0.,0.,0.);
