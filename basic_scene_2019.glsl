@@ -47,7 +47,6 @@ float vmax(in vec3 p ) {
     return max(p.x,max(p.y,p.z));
 }
 
-// Cheap Box: distance to corners is overestimated
 // from http://mercury.sexy/hg_sdf/
 float cbox(vec3 p, vec3 b) { //cheap box
 	return vmax(abs(p) - b);
@@ -60,11 +59,11 @@ float scene_plane(vec3 p) {
     #endif
     #ifdef SINBUMPS
         // cbox-based
-        //return cbox(vec3(p.x,p.y+sinbumps(p),p.z)+vec3(.0,.5,.0), vec3(20.,.01,20.));
-        return p.y + sinbumps(p) + .5;
+        return cbox(vec3(p.x,p.y+sinbumps(p),p.z)+vec3(.0,.5,.0), vec3(20.,.1,20.));
+        //return p.y + sinbumps(p) + .5;
     #else
         // cbox-based
-        // return cbox(p+vec3(.0,.5,.0), vec3(20.,.01,20.));
+        return cbox(p+vec3(.0,.5,.0), vec3(20.,.1,20.));
     #endif
 }
 
