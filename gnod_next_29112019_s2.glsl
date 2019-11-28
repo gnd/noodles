@@ -154,9 +154,9 @@ float sinbumps(in vec3 p){
 	// s1 / heightmap
 	vec3 path = vec3( path2d.x, mix(2.-noise2f(path2d.xy/10.)*10., sin(time/3.)*3., mx11), path2d.y );
 	vec3 path_next = vec3(path2d_next.x, mix(2.-noise2f(path2d_next.xy/10.)*10., 0., mx11), path2d_next.y );
-	float eps = mix(0.1, 0.01, mx11); // eps for iri2 texture needs to be also .001
-	int MAXSTEPS = int(mix(32, 84, mx11));
-	int MAXDIST = int(mix(20, 10, mx11));
+	float eps = mix(0.1, mix(0.01,0.1,mx23), mx11); // eps for iri2 texture needs to be also .001
+	int MAXSTEPS = int(mix(32, mix(84,42,mx23), mx11));
+	int MAXDIST = int(mix(20, mix(10,5,mx23), mx11));
 
 	vec3 ro = path;
 	vec3 lookat = path_next;
@@ -208,8 +208,11 @@ float blob (vec3 p) {
 }
 
 float blob_sinfield(vec3 p) {
-	float blo = step(0.01, mx21);
-	return smin(blob(p), sinfield(p*blo), 6.); // gnod_next_s1
+	float blo = 1000.;
+	if (mx21 > 0.) {
+		blo = blob(p);
+	}
+	return smin(blo	, sinfield(p), 6.); // gnod_next_s1
 }
 
 float scene(vec3 p) {
@@ -221,6 +224,8 @@ float scene(vec3 p) {
 	if (mx11 < 1.) {
 		sto2 = min(plane(p), sky_plane(p)); // height_mapping
 	}
+	// TODO aint smoothstep + mix faster ?
+	// NOPE - we want to *not* compute the distances fields
 	return blend(sto1, sto2, mx11);
 }
 
@@ -271,14 +276,17 @@ void main() {
 	// feedback - front
     asp = resolution.x / resolution.y;
     p2 = gl_FragCoord.xy / resolution;
-    color += feedb_sqr(mx76, mx75, mx66, mx65, mx74+m1*.1, color)*mx71*1.05*mx73;
+	if (mx73 > 0.) {
+		color += feedb_sqr(mx76, mx75, mx66, mx65, mx74+m1*.1, color)*mx71*1.05*mx73;
+	}
 
     // setup spheres
 	if (mx21 > 0.) {
 		vec4 tmp;
+		float multi = 1+m1;
 	    for( int i = 0; i < SPHERES; i++ ) {
-	        tmp.x = cos(time *.13 * (float( i )+2.));
-	        tmp.y = sin(time * .075 * (float( i )+4.));
+	        tmp.x = cos(time *.13 * (float( i )+2.))*multi;
+	        tmp.y = sin(time * .075 * (float( i )+4.))*multi;
 	        tmp.z = sin(time * .1 * (float( i )+3.3)) + path2d.y + 4.;
 	        tmp.w = .1 * (sin(time * .1  *(float( i) +1.))+2.) + mx21*2.5;
 	        spheres[i] = tmp;
@@ -384,7 +392,9 @@ void main() {
     color = mix(color, pow(color, vec3(1.0/2.2)), mx82);
 
 	// feedback - back
-	color += feedb_sqr(mx76, mx75, mx66, mx65, mx74+m1*.1, color)*mx71*1.05*mx72;
+	if (mx72 > 0.) {
+		color += feedb_sqr(mx76, mx75, mx66, mx65, mx74+m1*.1, color)*mx71*1.05;
+	}
 
     // channel mix
 	color = vec3(color.r*mx86,color.g*mx85,color.b*mx84);
