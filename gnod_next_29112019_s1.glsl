@@ -2,7 +2,6 @@
 uniform vec2 resolution;
 uniform float time;
 uniform sampler2D backbuffer;
-uniform sampler2D sony;
 out vec4 PixelColor;
 
 /// PARAMS
@@ -84,7 +83,7 @@ float mx94 = m59/127.;
 ///////////////// END OF MIDIMIX ////////////////////
 #define MAXSTEPS 84
 #define MAXDIST 10.0
-#define eps .01
+#define eps .001
 #define SPHERES 10
 #define FLY
 
@@ -102,6 +101,20 @@ float asp, spec;
 vec3 sky, color; // 'sky color'
 vec4 spheres[SPHERES];
 float speed = pow(1.01,100.);
+
+// set the camera trajectory
+// todo precompute stuff
+// make this controllable by midimix
+#ifdef FLY
+	vec3 ro = vec3(cos(time/3.)*4., sin(time/3.)*3., time*speed);
+	vec3 lookat = vec3(cos(time+2./3.)*4.,0.,time*speed + 7.);
+	vec3 light_position = vec3(cos(time)*4.,0.,time*speed + sin(time)*4);
+#else
+	vec3 ro = vec3(cos(time/4.)*3., 2., sin(time/4.)*3.); // ray origin, here also known as 'eye'
+	vec3 lookat = vec3(0.,0.,0.);
+	vec3 light_position = vec3(sin(time/4.)*4.,2.5,cos(time/4.)*3.);
+#endif
+
 
 // Counter 0 to 1
 float cnt(int m) {
@@ -138,7 +151,7 @@ float plane(vec3 p) {
 // taken from https://www.shadertoy.com/view/4ttGDH
 float sinfield (vec3 p) {
     //p.xy -= camPath(p.z).xy;
-    p.xy -= vec3(cos(time/3.), sin(time/3.)*3., time).xy;
+    p.xy -= ro.xy;
 	p = cos(p*.315*1.25 + sin(p.zxy*.875*1.25*mx14*10.));
     float n = length(p);
     return (n - 1.025)*1.33;
@@ -201,16 +214,6 @@ vec3 feedb_sqr(in float xpos, in float ypos, in float xsiz, in float ysiz, in fl
 }
 
 void main() {
-    #ifdef FLY
-        vec3 ro = vec3(cos(time/3.), sin(time/3.)*3., time*speed);
-        vec3 lookat = vec3(0.,0.,7.+time*speed);
-        l1.position = vec3(cos(time)*10.,2.,sin(time)*10.+time*speed);
-    #else
-        vec3 ro = vec3(cos(time/4.)*3., 2., sin(time/4.)*3.); // ray origin, here also known as 'eye'
-        vec3 lookat = vec3(0.,0.,0.);
-        l1.position = vec3(sin(time/4.)*4.,2.5,cos(time/4.)*3.);
-    #endif
-
     vec3 fwd = normalize(lookat-ro);
     vec3 right = normalize(vec3(fwd.z, 0., -fwd.x));
     vec3 up = normalize(cross(fwd, right));
@@ -220,9 +223,15 @@ void main() {
 
     // enviroment
     l1.color = vec3(1.,1.,1.);
+	l1.position = light_position;
     //l1.position = vec3(1.2, 2.0, -1.9);
     color = vec3(.0);
     sky = color;
+
+	// feedback - front
+    asp = resolution.x / resolution.y;
+    p = gl_FragCoord.xy / resolution;
+    color += feedb_sqr(mx76, mx75, mx66, mx65, mx74+m1*.1, color)*mx71*1.05*mx73;
 
     // setup spheres
     vec4 tmp;
@@ -247,8 +256,8 @@ void main() {
             vec3 n = normal(p3);
             vec3 ld = normalize(l1.position-p3);
             vec3 ed = normalize(ro-p3);
-            if (scene(p3*mx22) < eps) {
-                vec3 pp = mod(p3*100., 2.) - .5;
+            if (scene(p3) < eps) {
+                /*vec3 pp = mod(p3*100., 2.) - .5;
                 vec3 i = normalize(ro - pp);
                 vec3 ir = refract(i, n, 1./1.);
                 vec3 ir2 = refract(i, -n, 1./2.);
@@ -260,8 +269,10 @@ void main() {
                 color += vec3(cross(ir, n)) * clamp(.9 * pow(dot(normalize(reflect(-ld, n)), ed), .9), 0., 1.) * 2.5;
                 color += ir_color2 * clamp(0.4*n.y+0.5, 0., 1.) * 1.1;
 				color = texture2D(sony, (vec2(p3.x+5.5,3.-p3.y))*vec2(.09,.16)).xyz;
+				*/
             }
             if (scene(p3) < eps) {
+				// needs eps >= .001
                 float nv = dot(n, -rd);
                 vec3 col = vec3(0.);
                 col += sin(nv * vec3(0.0, 1.0, 0.0) * 10.0 * 1.5) * 0.5 + 0.5;
@@ -283,10 +294,10 @@ void main() {
     // gamma correction
     color = mix(color, pow(color, vec3(1.0/2.2)), mx82);
 
-    // feedback
-    asp = resolution.x / resolution.y;
-    p = gl_FragCoord.xy / resolution;
-    color += feedb_sqr(mx76, mx75, mx66, mx65, mx74+m1*.1, color)*mx71*1.05*mx72;
+	// feedback - back
+	asp = resolution.x / resolution.y;
+	p = gl_FragCoord.xy / resolution;
+	color += feedb_sqr(mx76, mx75, mx66, mx65, mx74+m1*.1, color)*mx71*1.05*mx72;
 
     // channel mix
 	color = vec3(color.r*mx86,color.g*mx85,color.b*mx84);
