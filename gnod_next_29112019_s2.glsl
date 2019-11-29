@@ -97,9 +97,6 @@ vec3 p3;
 float asp, spec;
 vec3 sky, color; // 'sky color'
 vec4 spheres[SPHERES];
-float speed = pow(1.01,100.);
-float speed_z = 4.;
-float speed_x = speed_z * .5;
 
 ///////////////////////////// NUMERICAL FUNCTIONS ///////////////////////////////////////////////////
 // Random number generator
@@ -147,16 +144,22 @@ float sinbumps(in vec3 p){
 
 ////////////////////////////////////////////// SCENE SETUP /////////////////////////////////////////////
 // precompute stuff
+float speed = pow(1.01,100.);
+float speed_z = 0.1+(100.*mx15);
+float speed_x = speed_z * .5;
+
 #ifdef FLY
-	vec2 path2d = vec2(cos(time/3.)*speed_x, time*speed_z);
-	vec2 path2d_next = vec2(cos(time+2./3.)*speed_x, (time+2.)*speed_z);
+    float camera_rot = mx16*10.;
+	vec2 path2d = vec2(cos(time/3.)*(speed_x+camera_rot), time*speed_z);
+	vec2 path2d_next = vec2(cos(time+2./3.)*speed_x+camera_rot/2., (time+2.)*speed_z);
 
 	// s1 / heightmap
 	vec3 path = vec3( path2d.x, mix(2.-noise2f(path2d.xy/10.)*10., sin(time/3.)*3., mx11), path2d.y );
 	vec3 path_next = vec3(path2d_next.x, mix(2.-noise2f(path2d_next.xy/10.)*10., 0., mx11), path2d_next.y );
-	float eps = mix(0.1, mix(0.01,0.1,mx23), mx11); // eps for iri2 texture needs to be also .001
+	float eps_ = mix(0.1, mix(0.01,0.1,mx23), mx11); // eps for iri2 texture needs to be also .001
 	int MAXSTEPS = int(mix(32, mix(84,42,mx23), mx11));
 	int MAXDIST = int(mix(20, mix(10,5,mx23), mx11));
+    float eps = mix(eps_, 0.0001, mx32/2.);
 
 	vec3 ro = path;
 	vec3 lookat = path_next;
@@ -182,11 +185,11 @@ float sphere(vec3 p, float r) {
 }
 
 float plane(vec3 p) {
-	return p.y + noise2f(p.xz/10.)*10. + noise2f(p.xz) + noise2f(p.xz*5.)*.1;
+	return p.y + noise2f(p.xz/10.)*10. + noise2f(p.xz) + noise2f(p.xz*5.)*.1+m1*10.*mx34;
 }
 
 float sky_plane(vec3 p) {
-	return -p.y + 10. - noise2f(p.xz/10.)*10. + noise2f(p.xz) + noise2f(p.xz*5.)*.1;
+	return -p.y + 10. - noise2f(p.xz/10.)*10. + noise2f(p.xz) + noise2f(p.xz*5.)*.1+m1*10.*mx34;
 }
 
 // taken from https://www.shadertoy.com/view/4ttGDH
@@ -218,14 +221,16 @@ float blob_sinfield(vec3 p) {
 float scene(vec3 p) {
 	float sto1 = 100.;
 	float sto2 = 100.;
+    float sky = 100.;
+    if (mx33 > 0.) {
+        sky = sky_plane(p);
+    }
 	if (mx11 > 0.) {
 		sto1 = blob_sinfield(p);
 	}
 	if (mx11 < 1.) {
-		sto2 = min(plane(p), sky_plane(p)); // height_mapping
+		sto2 = min(plane(p), sky); // height_mapping
 	}
-	// TODO aint smoothstep + mix faster ?
-	// NOPE - we want to *not* compute the distances fields
 	return blend(sto1, sto2, mx11);
 }
 
@@ -306,7 +311,7 @@ void main() {
             vec3 n = normal(p3);
             vec3 ld = normalize(l1.position-p3);
             vec3 ed = normalize(ro-p3);
-            if (blob_sinfield(p3) < eps) {
+            if ((blob_sinfield(p3) < eps) && (mx11 > 0.)) {
 				if (mx22 == 0) {
 					vec3 pp = mod(p3*100., 2.) - .5;
 					vec3 i = normalize(ro - pp);
@@ -314,11 +319,12 @@ void main() {
 					vec3 ir2 = refract(i, -n, 1./2.);
 					vec3 ir_color2 = vec3(cross(ir2, -n));
 					// mix it
-					color = ir_color2 * clamp(dot(n,ld), 0., 1.);
-					color += ir_color2*1.3 + clamp(2.9 * pow(dot(normalize(reflect(-ld, n)), ed), 1.9), 0., 1.) * .1;
-					color += clamp(.5 * pow(dot(normalize(reflect(-ld, n)), ed), .1), 0., 1.) * 0.1;
-					color += vec3(cross(ir, n)) * clamp(.9 * pow(dot(normalize(reflect(-ld, n)), ed), .9), 0., 1.) * 2.5;
-					color += ir_color2 * clamp(0.4*n.y+0.5, 0., 1.) * 1.1;
+					mat1.color = ir_color2 * clamp(dot(n,ld), 0., 1.);
+					mat1.color += ir_color2*1.3 + clamp(2.9 * pow(dot(normalize(reflect(-ld, n)), ed), 1.9), 0., 1.) * .1;
+					mat1.color += clamp(.5 * pow(dot(normalize(reflect(-ld, n)), ed), .1), 0., 1.) * 0.1;
+					mat1.color += vec3(cross(ir, n)) * clamp(.9 * pow(dot(normalize(reflect(-ld, n)), ed), .9), 0., 1.) * 2.5;
+					mat1.color += ir_color2 * clamp(0.4*n.y+0.5, 0., 1.) * 1.1;
+                    color = mat1.color * smoothstep(0.,0.2, mx11);
 				} else {
 					float nv = dot(n, -rd);
 					vec3 col = vec3(0.);
@@ -327,61 +333,57 @@ void main() {
 					col += sin(nv * vec3(0.0, 0.0, 1.0) * 5.0 * 1.5) * 0.5 + 0.5;
 					col = 1.1 - col;
 					mat1.color = clamp(normalize(col), 0.0, 1.0);
-					spec = clamp(3.5 * pow(dot(normalize(reflect(-ld, n)), ed), 70.), 0., 1.);;
+					spec = clamp(3.5 * pow(dot(normalize(reflect(-ld, n)), ed), 70.), 0., 1.);
 					color += mat1.color * clamp(0.4*n.y+0.5, 0., 1.) * 3.;
 				}
             }
 			if (plane(p3) < eps) {
-
-                /*
-                // needs eps at least <= 0.0001
-                vec3 perturb = sin(p3 * .001);
-                m1.color = spectrum( dot(perturb * .05 + n, ro) * 2.);
-                color = 0.02 - m1.color;
-                color += clamp(.5 * pow(dot(normalize(reflect(-ld, n)), ed), .1), 0., 1.) * 2.;
-                color += m1.color * clamp(0.4*n.y+0.5, 0., 1.) * .5;
-                */
-
-                // better suited if light a bit upfront here
-                float nv = dot(n, -rd);
-                vec3 col = vec3(0.);
-                col += sin(nv * vec3(0.0, 1.0, 0.0) * 10.0 * 1.5) * 0.5 + 0.5;
-                col += sin(nv * vec3(1.0, 0.0, 0.0) * 20.0 * 1.5) * 0.5 + 0.5;
-                col += sin(nv * vec3(0.0, 0.0, 1.0) * 5.0 * 1.5) * 0.5 + 0.5;
-                col = 1.1 - col;
-                mat1.color = clamp(normalize(col), 0.0, 1.0);
-                color = brightcon(mat1.color, .1, 1.5) * clamp(dot(n,ld), 0., 1.) * 1.;
-                color += clamp(3.5 * pow(dot(normalize(reflect(-ld, n)), ed), 70.), 0., 1.);;
-                color += mat1.color * clamp(0.4*n.y+0.5, 0., 1.) * 1.1;
-                color += vec3(0.,0.,float(i)*(1./float(MAXSTEPS/3)))*.05; //glow
-
+                if (mx32 == 1.) {
+                    // better suited if light a bit upfront here
+                    float nv = dot(n, -rd);
+                    vec3 col = vec3(0.);
+                    col += sin(nv * vec3(0.0, 1.0, 0.0) * 10.0 * 1.5) * 0.5 + 0.5;
+                    col += sin(nv * vec3(1.0, 0.0, 0.0) * 20.0 * 1.5) * 0.5 + 0.5;
+                    col += sin(nv * vec3(0.0, 0.0, 1.0) * 5.0 * 1.5) * 0.5 + 0.5;
+                    col = 1.1 - col;
+                    mat1.color = clamp(normalize(col), 0.0, 1.0);
+                    color = brightcon(mat1.color, .1, 1.5) * clamp(dot(n,ld), 0., 1.) * 1.;
+                    color += clamp(3.5 * pow(dot(normalize(reflect(-ld, n)), ed), 70.), 0., 1.);;
+                    color += mat1.color * clamp(0.4*n.y+0.5, 0., 1.) * 1.1;
+                }
+                if (mx32 == 2.) {
+                    // needs eps at least <= 0.0001
+                    vec3 perturb = sin(p3 * .001);
+                    mat1.color = spectrum( dot(perturb * .05 + n, ro) * 2.);
+                    color = 0.02 - mat1.color;
+                    color += clamp(.5 * pow(dot(normalize(reflect(-ld, n)), ed), .1), 0., 1.) * 1.;
+                    color += mat1.color * clamp(0.4*n.y+0.5, 0., 1.) * .5;
+                }
             }
-            if (sky_plane(p3) < eps) {
-
-                /*
-                vec3 perturb = sin(p3 * .001);
-                m1.color = spectrum( dot(perturb * .05 + n, ro) * 2.);
-                color = 0.07 - m1.color;
-                color += clamp(.5 * pow(dot(normalize(reflect(-ld, n)), ed), .1), 0., 1.) * 2.;
-                color += m1.color * clamp(0.4*n.y+0.5, 0., 1.) * 1.5;
-                */
-
-                float nv = dot(n, -rd);
-                vec3 col = vec3(0.);
-                col += sin(nv * vec3(0.0, 1.0, 0.0) * 10.0 * 1.5) * 0.5 + 0.5;
-                col += sin(nv * vec3(1.0, 0.0, 0.0) * 20.0 * 1.5) * 0.5 + 0.5;
-                col += sin(nv * vec3(0.0, 0.0, 1.0) * 5.0 * 1.5) * 0.5 + 0.5;
-                col = 1.1 - col;
-                mat1.color = clamp(normalize(col), 0.0, 1.0);
-                color = brightcon(mat1.color, .1, 1.5) * clamp(dot(n,ld), 0., 1.) * 1.;
-                color += clamp(3.5 * pow(dot(normalize(reflect(-ld, n)), ed), 70.), 0., 1.);;
-                color += mat1.color * clamp(0.4*n.y+0.5, 0., 1.) * 1.1;
-                color += vec3(0.,0.,float(i)*(1./float(MAXSTEPS/3)))*.05; //glow
-
+            if ((sky_plane(p3) < eps) && (mx33 == 1.)) {
+                if (mx32 == 1.) {
+                    float nv = dot(n, -rd);
+                    vec3 col = vec3(0.);
+                    col += sin(nv * vec3(0.0, 1.0, 0.0) * 10.0 * 1.5) * 0.5 + 0.5;
+                    col += sin(nv * vec3(1.0, 0.0, 0.0) * 20.0 * 1.5) * 0.5 + 0.5;
+                    col += sin(nv * vec3(0.0, 0.0, 1.0) * 5.0 * 1.5) * 0.5 + 0.5;
+                    col = 1.1 - col;
+                    mat1.color = clamp(normalize(col), 0.0, 1.0);
+                    color = brightcon(mat1.color, .1, 1.5) * clamp(dot(n,ld), 0., 1.) * 1.;
+                    color += clamp(3.5 * pow(dot(normalize(reflect(-ld, n)), ed), 70.), 0., 1.);;
+                    color += mat1.color * clamp(0.4*n.y+0.5, 0., 1.) * 1.1;
+                }
+                if (mx32 == 2.) {
+                    vec3 perturb = sin(p3 * .001);
+                    mat1.color = spectrum( dot(perturb * .05 + n, ro) * 2.);
+                    color = 0.07 - mat1.color;
+                    color += clamp(.5 * pow(dot(normalize(reflect(-ld, n)), ed), .1), 0., 1.) * 2.;
+                    color += mat1.color * clamp(0.4*n.y+0.5, 0., 1.) * 1.5;
+                }
             }
             break;
         }
-		color += vec3(0.,0.,mix(float(i)*(1./float(MAXSTEPS)), 0., mx11)*0.2);
+		color += vec3(0.,0.,mix(float(i)*(1./float(MAXSTEPS)*mx31)., 0., mx11)*0.2);
         step += d;
     }
 
