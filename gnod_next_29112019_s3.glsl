@@ -1,0 +1,546 @@
+#version 330
+uniform vec2 resolution;
+uniform float time;
+uniform vec2 rand;
+uniform sampler2D backbuffer;
+out vec4 PixelColor;
+
+/// PARAMS
+uniform float m0;
+uniform float m1;
+uniform float m2;
+uniform float m3;
+uniform float m4;
+uniform float m5;
+uniform float m6;
+uniform float m7;
+
+/// COLORS
+vec3 cx;
+vec3 ck = vec3(0.);
+vec3 cw = vec3(1.0);
+vec3 cr = vec3(1.,0.,0.);
+vec3 cg = vec3(0.,1.,0.);
+vec3 cb = vec3(0.,0.,1.);
+//////////////////// END OF GLOBALS //////////////
+
+/////////////////// MIDIMIX //////////////////////
+uniform float m8,m9,m10;
+uniform float m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30;
+uniform float m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48,m49,m50;
+uniform float m51,m52,m53,m54,m55,m56,m57,m58,m59;
+float mx11 = m8/127.;
+float mx12 = m9/127.;
+float mx13 = m10/127.;
+float mx14 = m11/127.;
+float mx15 = m12/127.;
+float mx16 = m13/127.;
+float mx21 = m14/127.;
+float mx22 = m15/127.;
+float mx23 = m16/127.;
+float mx24 = m17/127.;
+float mx25 = m18/127.;
+float mx26 = m19/127.;
+float mx31 = m20/127.;
+float mx32 = m21/127.;
+float mx33 = m22/127.;
+float mx34 = m23/127.;
+float mx35 = m24/127.;
+float mx36 = m25/127.;
+float mx41 = m26/127.;
+float mx42 = m27/127.;
+float mx43 = m28/127.;
+float mx44 = m29/127.;
+float mx45 = m30/127.;
+float mx46 = m31/127.;
+float mx51 = m32/127.;
+float mx52 = m33/127.;
+float mx53 = m34/127.;
+float mx54 = m35/127.;
+float mx55 = m36/127.;
+float mx56 = m37/127.;
+float mx61 = m38/127.;
+float mx62 = m39/127.;
+float mx63 = m40/127.;
+float mx64 = m41/127.;
+float mx65 = m42/127.;
+float mx66 = m43/127.;
+float mx71 = m44/127.;
+float mx72 = m45/127.;
+float mx73 = m46/127.;
+float mx74 = m47/127.;
+float mx75 = m48/127.;
+float mx76 = m49/127.;
+float mx81 = m50/127.;
+float mx82 = m51/127.;
+float mx83 = m52/127.;
+float mx84 = m53/127.;
+float mx85 = m54/127.;
+float mx86 = m55/127.;
+float mx91 = m56/127.;
+float mx92 = m57/127.;
+float mx93 = m58/127.;
+float mx94 = m59/127.;
+///////////////// END OF MIDIMIX ////////////////////
+#define SPHERES 10
+#define FLY
+
+struct march { float step; vec3 ro; vec3 rd; };
+struct light { vec3 position; vec3 color; };
+struct material { vec3 color; float reflection_ratio; float shininess; };
+struct shading { float diffuse; float specular; float shadow; float aoc; float amb; };
+
+light l1;
+material mat1;
+shading s1;
+
+vec2 p2;
+vec3 p3;
+float asp, spec;
+vec3 sky, color; // 'sky color'
+vec4 spheres[SPHERES];
+bool refracted = false;
+
+///////////////////////////// NUMERICAL FUNCTIONS ///////////////////////////////////////////////////
+mat4 inverse(mat4 m) {
+  float
+      a00 = m[0][0], a01 = m[0][1], a02 = m[0][2], a03 = m[0][3],
+      a10 = m[1][0], a11 = m[1][1], a12 = m[1][2], a13 = m[1][3],
+      a20 = m[2][0], a21 = m[2][1], a22 = m[2][2], a23 = m[2][3],
+      a30 = m[3][0], a31 = m[3][1], a32 = m[3][2], a33 = m[3][3],
+
+      b00 = a00 * a11 - a01 * a10,
+      b01 = a00 * a12 - a02 * a10,
+      b02 = a00 * a13 - a03 * a10,
+      b03 = a01 * a12 - a02 * a11,
+      b04 = a01 * a13 - a03 * a11,
+      b05 = a02 * a13 - a03 * a12,
+      b06 = a20 * a31 - a21 * a30,
+      b07 = a20 * a32 - a22 * a30,
+      b08 = a20 * a33 - a23 * a30,
+      b09 = a21 * a32 - a22 * a31,
+      b10 = a21 * a33 - a23 * a31,
+      b11 = a22 * a33 - a23 * a32,
+
+      det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+
+  return mat4(
+      a11 * b11 - a12 * b10 + a13 * b09,
+      a02 * b10 - a01 * b11 - a03 * b09,
+      a31 * b05 - a32 * b04 + a33 * b03,
+      a22 * b04 - a21 * b05 - a23 * b03,
+      a12 * b08 - a10 * b11 - a13 * b07,
+      a00 * b11 - a02 * b08 + a03 * b07,
+      a32 * b02 - a30 * b05 - a33 * b01,
+      a20 * b05 - a22 * b02 + a23 * b01,
+      a10 * b10 - a11 * b08 + a13 * b06,
+      a01 * b08 - a00 * b10 - a03 * b06,
+      a30 * b04 - a31 * b02 + a33 * b00,
+      a21 * b02 - a20 * b04 - a23 * b00,
+      a11 * b07 - a10 * b09 - a12 * b06,
+      a00 * b09 - a01 * b07 + a02 * b06,
+      a31 * b01 - a30 * b03 - a32 * b00,
+      a20 * b03 - a21 * b01 + a22 * b00) / det;
+}
+
+mat4 rmat(vec3 axis, float angle) {
+    axis = normalize(axis);
+    float s = sin(angle);
+    float c = cos(angle);
+    float oc = 1.0 - c;
+
+    return mat4(oc * axis.x * axis.x + c, oc * axis.x * axis.y - axis.z * s, oc * axis.z * axis.x + axis.y * s, 0.0,
+                oc * axis.x * axis.y + axis.z * s, oc * axis.y * axis.y + c, oc * axis.y * axis.z - axis.x * s, 0.0,
+                oc * axis.z * axis.x - axis.y * s, oc * axis.y * axis.z + axis.x * s, oc * axis.z * axis.z + c, 0.0,
+                0.0, 0.0, 0.0, 1.0);
+}
+
+// Random number generator
+// lumina.sourceforge.net/Tutorials/Noise.html
+float rnd(vec2 co){
+    float k = sin(dot(co.xy ,vec2(12.9898,78.233)));
+    return fract(k + k);
+}
+
+// http://www.iquilezles.org/www/articles/morenoise/morenoise.htm
+float noise2f( in vec2 p ) {
+    vec2 ip = vec2(floor(p));
+    vec2 u = fract(p);
+    u = u*u*u*((6.0*u-15.0)*u+10.0);
+    float res = mix( mix(rnd(ip), rnd(ip+vec2(1.0,0.0)), u.x),
+                     mix(rnd(ip+vec2(0.0,1.0)), rnd(ip+vec2(1.0,1.0)), u.x),
+                    u.y);
+    return res - 0.25;
+}
+
+// Counter 0 to 1
+float cnt(int m) {
+	float divider = 1000.0 / float(m)*10.0;
+	return mod(time*divider, 10.0) / 10.0;
+}
+
+float smin( float a, float b, float k ) {
+    float res = exp( -k*a ) + exp( -k*b );
+    return -log( res )/k;
+}
+
+vec3 blend(in vec3 d1, in vec3 d2, in float k) {
+	return k * d1 + (1.-k) * d2;
+}
+
+float blend(in float d1, in float d2, in float k) {
+	return k * d1 + (1.-k) * d2;
+}
+
+float vmax(in vec3 p ) {
+    return max(p.x,max(p.y,p.z));
+}
+
+vec3 rot(vec3 p, mat4 m) {
+    vec4 q = inverse(m)*vec4(p,1.);
+    return vec3(q.x,q.y,q.z);
+}
+
+// Sinusoid bumps
+float sinbumps(in vec3 p){
+    float frq = 1.7;
+    return sin(p.x*frq+time*0.57)*atan(p.y*frq+time*2.17)*sin(p.z*frq-time*1.31)*sin(time)*1.7;
+}
+
+// twist around x axis
+vec3 xtwist(in vec3 p, float r) {
+    float k = r; // or some other amount
+    float c = cos(k*p.x);
+    float s = sin(k*p.x);
+    mat2  m = mat2(c,-s,s,c);
+    vec3  q = vec3(m*p.yz,p.x);
+    return vec3(q.z,q.x,q.y); // we need this to fix the twist
+}
+
+////////////////////////////////////////////// SCENE SETUP /////////////////////////////////////////////
+// precompute stuff
+float speed = pow(1.01,100.);
+float speed_z = 0.1+(100.*mx15);
+float speed_x = speed_z * .5;
+
+#ifdef FLY
+    float camera_rot = mx16*30.*m1;
+	vec2 path2d = vec2(cos(time/3.)*(speed_x+camera_rot), time*speed_z);
+	vec2 path2d_next = vec2(cos(time+2./3.)*speed_x+camera_rot/2., (time+2.)*speed_z);
+
+	// s1 / heightmap
+	vec3 path = vec3( path2d.x, mix(2.-noise2f(path2d.xy/10.)*10., sin(time/3.)*3., mx11), path2d.y );
+	vec3 path_next = vec3(path2d_next.x, mix(2.-noise2f(path2d_next.xy/10.)*10., 0., mx11), path2d_next.y );
+	float eps_ = mix(0.1, mix(0.01,0.1,mx23), mx11); // eps for iri2 texture needs to be also .001
+	int MAXSTEPS = int(mix(32, mix(84,42,mx23), mx11));
+	int MAXDIST = int(mix(20, mix(10,5,mx23), mx11));
+    float eps = mix(eps_, 0.0001, mx32/2.);
+
+	vec3 ro = path;
+	vec3 lookat = path_next;
+	vec3 light_position = vec3(path.x,0.,path.z + sin(time)*4);
+#else
+	float eps = 0.001;
+	vec3 ro = vec3(cos(time/4.)*3., 2., sin(time/4.)*3.); // ray origin, here also known as 'eye'
+	vec3 lookat = vec3(0.,0.,0.);
+	vec3 light_position = vec3(sin(time/4.)*4.,2.5,cos(time/4.)*3.);
+#endif
+
+/////////////////////////// DISTANCE FIELDS /////////////////////////////////////////////////////
+// Stripe
+vec3 str(in float xp, in float yp, in float x, in float y, in vec3 c, in vec3 col) {
+        //float ys = y * asp;
+        float ys=y;
+        vec3 cl = ((p2.x > xp-x*.51) && (p2.x < x*.51+xp) && (p2.y > yp-ys*.51) && (p2.y < ys*.51+yp)) ? -c+col : vec3(0.0);
+        return cl;
+}
+
+float sphere(vec3 p, float r) {
+    return length(p) - r;
+}
+
+// from http://mercury.sexy/hg_sdf/
+float cbox(vec3 p, vec3 b) { //cheap box
+	return vmax(abs(p) - b);
+}
+
+float tortor(vec3 p) {
+    mat4 rotmat = rmat(vec3(0.,1.,path2d.y), radians(time*100.*mx44));
+    p = rot(p, rotmat);
+    p -= vec3(0., .5, path2d.y +10.);
+    p = xtwist(p, mx46*10.*m1);
+    float siz = mx41 * mx45 * 100.;
+    if (mx43 == 1.) {
+        return sphere(p, siz);
+    } else {
+        float isiz = siz * .2;
+        return smin(length(vec2(length(p.xz) - siz, p.y)) - isiz,
+                length(vec2(length(p.xy) - siz, p.z)) - isiz, 4.);
+    }
+}
+
+float plane(vec3 p) {
+	return p.y + noise2f(p.xz/10.)*10. + noise2f(p.xz) + noise2f(p.xz*5.)*.1+m1*10.*mx34;
+}
+
+float sky_plane(vec3 p) {
+	return -p.y + 10. - noise2f(p.xz/10.)*10. + noise2f(p.xz) + noise2f(p.xz*5.)*.1+m1*10.*mx34;
+}
+
+float bumplane(vec3 p) {
+    return cbox(vec3(p.x,p.y+sinbumps(p)*mx51*10.,p.z)-vec3(.0,.0,path2d.y), vec3(20.,.1,20.));
+}
+
+// taken from https://www.shadertoy.com/view/4ttGDH
+float sinfield (vec3 p) {
+    p.xy -= ro.xy;
+	p = cos(p*.315*1.25*(1.-mx26) + sin(p.zxy*.875*1.25*mx25*10.));
+	float bumps = abs(sinbumps(p)+0.1)*mx24;
+    float n = length(p);
+    return (n - 1.025)*1.33-bumps;
+}
+
+// from https://www.shadertoy.com/view/4t2GDG
+float blob (vec3 p) {
+    float res = 10000.;
+    for( int i = 0; i < SPHERES; i++ ) {
+        res = smin(res, sphere(p-spheres[i].xyz, spheres[i].w), 8.);
+   }
+   return res;
+}
+
+float blob_sinfield(vec3 p) {
+	float blo = 1000.;
+	if (mx21 > 0.) {
+		blo = blob(p);
+	}
+	return smin(blo	, sinfield(p), 6.); // gnod_next_s1
+}
+
+float scene(vec3 p) {
+	float sto1 = 100.;
+	float sto2 = 100.;
+    float sky = 100.;
+    float tor = 100.;
+    float bpl = 100.;
+    if (mx42 > 0.) {
+        tor = tortor(p);
+    }
+    if (mx33 > 0.) {
+        sky = sky_plane(p);
+    }
+	if (mx11 > 0.) {
+		sto1 = blob_sinfield(p);
+	}
+	if (mx11 < 1.) {
+		sto2 = min(plane(p), sky); // height_mapping
+	}
+	return min(blend(sto1, sto2, mx11), tor);
+}
+
+// taken from http://iquilezles.org/www/articles/normalsSDF/normalsSDF.htm
+vec3 normal(vec3 p) {
+    const vec2 k = vec2(1,-1);
+    return normalize( k.xyy*scene( p + k.xyy*eps ) +
+                      k.yyx*scene( p + k.yyx*eps ) +
+                      k.yxy*scene( p + k.yxy*eps ) +
+                      k.xxx*scene( p + k.xxx*eps ) );
+}
+
+////////////////////////////// COLOR MODIFIERS //////////////////////////////////////////////////
+march refraction(vec3 p, vec3 n, vec3 rd, float eta) {
+    // Glass becomes a 'portal' through which refracted rays keep on raymarching
+    march march;
+    march.ro = p;
+    march.rd = normalize(refract(rd, n, eta));
+    march.step = 0.0;
+    for (int j=0; j < MAXSTEPS; j++) {
+        p = march.ro + march.rd * march.step;
+        float d = scene(p);
+        march.step += max(abs(d),eps);
+        if (d > eps) {
+            // attenuate due to impurities, etc
+            color *= 1.;
+            // second refraction
+            march.ro = p;
+            march.rd = normalize(refract(march.rd, -normal(p), 1./eta));
+            break;
+        }
+    }
+    return march;
+}
+
+// from https://alaingalvan.tumblr.com/post/79864187609/glsl-color-correction-shaders
+vec3 brightcon(vec3 c, float brightness, float contrast) {
+    return (c - 0.5) * contrast + 0.5 + brightness;
+}
+
+// from https://www.shadertoy.com/view/llcXWM
+vec3 pal( in float t, in vec3 a, in vec3 b, in vec3 c, in vec3 d ) {
+    return b*cos( 6.28318*(c*t+d) ) + a;
+}
+
+vec3 spectrum(float n) {
+    return pal( n, vec3(0.5,0.5,0.5),vec3(0.5,0.5,0.5),vec3(1.0,1.0,1.0),vec3(0.0,0.33,0.67) );
+}
+
+// Feedback
+vec3 feedb_sqr(in float xpos, in float ypos, in float xsiz, in float ysiz, in float bsiz, in vec3 c) {
+    vec3 ccc = texture2D(backbuffer, (vec2(p2.x,p2.y)-0.51)*bsiz*1.5+0.51).xyz;
+    c+=str(xpos,ypos,xsiz,ysiz,c,ccc);
+	return c;
+}
+
+void main() {
+	// raymarching & camera setup
+    vec3 fwd = normalize(lookat-ro);
+    vec3 right = normalize(vec3(fwd.z, 0., -fwd.x));
+    vec3 up = normalize(cross(fwd, right));
+    vec2 uv = gl_FragCoord.xy * 2.0 / resolution - 1.0;
+    float aspect = resolution.x/resolution.y;
+    vec3 rd = normalize(1.4*fwd + uv.x*right*aspect + uv.y*up);
+    l1.color = vec3(1.,1.,1.);
+	l1.position = light_position;
+    color = vec3(.0);
+    sky = color;
+
+	// feedback - front
+    asp = resolution.x / resolution.y;
+    p2 = gl_FragCoord.xy / resolution;
+	if (mx73 > 0.) {
+		color += feedb_sqr(mx76, mx75, mx66, mx65, mx74+m1*.1, color)*mx71*1.05*mx73;
+	}
+
+    // setup spheres
+	if (mx21 > 0.) {
+		vec4 tmp;
+		float multi = 1+m1;
+	    for( int i = 0; i < SPHERES; i++ ) {
+	        tmp.x = cos(time *.13 * (float( i )+2.))*multi;
+	        tmp.y = sin(time * .075 * (float( i )+4.))*multi;
+	        tmp.z = sin(time * .1 * (float( i )+3.3)) + path2d.y + 4.;
+	        tmp.w = .1 * (sin(time * .1  *(float( i) +1.))+2.) + mx21*2.5;
+	        spheres[i] = tmp;
+	    }
+	}
+
+    // raymarch a scene
+    float step = .0;
+    vec3 p_refr;
+    for (int i = 0; i < MAXSTEPS; ++i) {
+        p3 = ro + (rd * step);
+        float d = scene(p3);
+        if (d > MAXDIST) {
+            break;
+        }
+        if (d < eps) {
+            // precompute stuff
+            vec3 n = normal(p3);
+            vec3 ld = normalize(l1.position-p3);
+            vec3 ed = normalize(ro-p3);
+            if ((tortor(p3) < eps) && (mx42 > 0.)) {
+                // Compute refraction
+                p_refr = p3;
+                refracted = true;
+                march march = refraction(p3, n, rd, 1./2.22);
+                step = march.step;
+                rd = march.rd;
+                ro = march.ro;
+            } else {
+                if ((blob_sinfield(p3) < eps) && (mx11 > 0.)) {
+    				if (mx22 == 0) {
+    					vec3 pp = mod(p3*100., 2.) - .5;
+    					vec3 i = normalize(ro - pp);
+    					vec3 ir = refract(i, n, 1./1.);
+    					vec3 ir2 = refract(i, -n, 1./2.);
+    					vec3 ir_color2 = vec3(cross(ir2, -n));
+    					// mix it
+    					mat1.color = ir_color2 * clamp(dot(n,ld), 0., 1.);
+    					mat1.color += ir_color2*1.3 + clamp(2.9 * pow(dot(normalize(reflect(-ld, n)), ed), 1.9), 0., 1.) * .1;
+    					mat1.color += clamp(.5 * pow(dot(normalize(reflect(-ld, n)), ed), .1), 0., 1.) * 0.1;
+    					mat1.color += vec3(cross(ir, n)) * clamp(.9 * pow(dot(normalize(reflect(-ld, n)), ed), .9), 0., 1.) * 2.5;
+    					mat1.color += ir_color2 * clamp(0.4*n.y+0.5, 0., 1.) * 1.1;
+                        color = mat1.color * smoothstep(0.,0.2, mx11);
+    				} else {
+    					float nv = dot(n, -rd);
+    					vec3 col = vec3(0.);
+    					col += sin(nv * vec3(0.0, 1.0, 0.0) * 10.0 * 1.5) * 0.5 + 0.5;
+    					col += sin(nv * vec3(1.0, 0.0, 0.0) * 20.0 * 1.5) * 0.5 + 0.5;
+    					col += sin(nv * vec3(0.0, 0.0, 1.0) * 5.0 * 1.5) * 0.5 + 0.5;
+    					col = 1.1 - col;
+    					mat1.color = clamp(normalize(col), 0.0, 1.0);
+    					spec = clamp(3.5 * pow(dot(normalize(reflect(-ld, n)), ed), 70.), 0., 1.);
+    					color += mat1.color * clamp(0.4*n.y+0.5, 0., 1.) * 3.;
+    				}
+                }
+    			if (plane(p3) < eps) {
+                    if (mx32 == 1.) {
+                        // better suited if light a bit upfront here
+                        float nv = dot(n, -rd);
+                        vec3 col = vec3(0.);
+                        col += sin(nv * vec3(0.0, 1.0, 0.0) * 10.0 * 1.5) * 0.5 + 0.5;
+                        col += sin(nv * vec3(1.0, 0.0, 0.0) * 20.0 * 1.5) * 0.5 + 0.5;
+                        col += sin(nv * vec3(0.0, 0.0, 1.0) * 5.0 * 1.5) * 0.5 + 0.5;
+                        col = 1.1 - col;
+                        mat1.color = clamp(normalize(col), 0.0, 1.0);
+                        color = brightcon(mat1.color, .1, 1.5) * clamp(dot(n,ld), 0., 1.) * 1.;
+                        color += clamp(3.5 * pow(dot(normalize(reflect(-ld, n)), ed), 70.), 0., 1.);;
+                        color += mat1.color * clamp(0.4*n.y+0.5, 0., 1.) * 1.1;
+                    }
+                    if (mx32 == 2.) {
+                        // needs eps at least <= 0.0001
+                        vec3 perturb = sin(p3 * .001);
+                        mat1.color = spectrum( dot(perturb * .05 + n, ro) * 2.);
+                        color = 0.02 - mat1.color;
+                        color += clamp(.5 * pow(dot(normalize(reflect(-ld, n)), ed), .1), 0., 1.) * 1.;
+                        color += mat1.color * clamp(0.4*n.y+0.5, 0., 1.) * .5;
+                    }
+                }
+                if ((sky_plane(p3) < eps) && (mx33 == 1.)) {
+                    if (mx32 == 1.) {
+                        float nv = dot(n, -rd);
+                        vec3 col = vec3(0.);
+                        col += sin(nv * vec3(0.0, 1.0, 0.0) * 10.0 * 1.5) * 0.5 + 0.5;
+                        col += sin(nv * vec3(1.0, 0.0, 0.0) * 20.0 * 1.5) * 0.5 + 0.5;
+                        col += sin(nv * vec3(0.0, 0.0, 1.0) * 5.0 * 1.5) * 0.5 + 0.5;
+                        col = 1.1 - col;
+                        mat1.color = clamp(normalize(col), 0.0, 1.0);
+                        color = brightcon(mat1.color, .1, 1.5) * clamp(dot(n,ld), 0., 1.) * 1.;
+                        color += clamp(3.5 * pow(dot(normalize(reflect(-ld, n)), ed), 70.), 0., 1.);;
+                        color += mat1.color * clamp(0.4*n.y+0.5, 0., 1.) * 1.1;
+                    }
+                    if (mx32 == 2.) {
+                        vec3 perturb = sin(p3 * .001);
+                        mat1.color = spectrum( dot(perturb * .05 + n, ro) * 2.);
+                        color = 0.07 - mat1.color;
+                        color += clamp(.5 * pow(dot(normalize(reflect(-ld, n)), ed), .1), 0., 1.) * 2.;
+                        color += mat1.color * clamp(0.4*n.y+0.5, 0., 1.) * 1.5;
+                    }
+                }
+                if (refracted && (mx42 > 0.)) {
+                    color += clamp(10.9 * pow(dot(normalize(reflect(-ld, n)), ed), 100.9), 0., 1.) * 10.;
+                }
+                break;
+            }
+        }
+		color += vec3(mix(float(i)*(1./float(MAXSTEPS)*mx31), 0., mx11),0.,0.);
+        step += d;
+    }
+
+    // gamma correction
+    color = mix(color, pow(color, vec3(1.0/2.2)), mx82);
+
+	// feedback - back
+	if (mx72 > 0.) {
+		color += feedb_sqr(mx76, mx75, mx66+m1, mx65, mx74+m1*.1, color)*mx71*1.05;
+	}
+
+    // channel mix
+	color = vec3(color.r*mx86,color.g*mx85,color.b*mx84);
+
+    // strobe
+    color += vec3(cnt(100))*mx83*.9;
+
+    // send to screen
+    PixelColor = vec4(color+spec, 1.)*mx81*1.4;
+}

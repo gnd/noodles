@@ -152,7 +152,7 @@ float plane(vec3 p) {
 float sinfield (vec3 p) {
     //p.xy -= camPath(p.z).xy;
     p.xy -= ro.xy;
-	p = cos(p*.315*1.25 + sin(p.zxy*.875*1.25*mx14*10.));
+	p = cos(p*.315*1.25 + sin(p.zxy*.875*1.25*mx24*10.));
     float n = length(p);
     return (n - 1.025)*1.33;
 }
@@ -239,7 +239,7 @@ void main() {
         tmp.x = cos(time *.13 * (float( i )+2.));
         tmp.y = sin(time * .075 * (float( i )+4.));
         tmp.z = sin(time * .1 * (float( i )+3.3)) + time*speed+4.;
-        tmp.w = .1 * (sin(time * .1  *(float( i) +1.))+2.) + mx11*2.5;
+        tmp.w = .1 * (sin(time * .1  *(float( i) +1.))+2.) + mx31*2.5;
         spheres[i] = tmp;
     }
 
