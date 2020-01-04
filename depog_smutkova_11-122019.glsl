@@ -80,22 +80,14 @@ struct light { vec3 position; vec3 color; };
 light l1;
 vec3 color;
 
-float vmax(in vec2 p ) {
-    return max(p.x,p.y);
-}
-
 float vmax(in vec3 p ) {
     return max(p.x,max(p.y,p.z));
 }
 
 // sony height mapping
 vec3 texcol(vec3 p) {
-    p *= 3.;
-    //p.x = mod(p.x);
-    //p.z = mod(p.z, 8.) - 4.;
-    vec3 pixel = texture2D(sony, (vec2(9.-p.x,4.-p.z))*vec2(.05,.1)).rgb;
-    //return vec3(dot(pixel, vec3(0.299, 0.587, 0.114)));
-    return pixel;
+    p*=3.;
+    return texture2D(sony, vec2(-p.x*.15+.45,-p.z*.3+4.)).rgb;
 }
 
 float scene(vec3 p) {
@@ -104,18 +96,16 @@ float scene(vec3 p) {
     float s = 1.;
 
     for (int m=0; m<5; m++) {
-         // scale = p*s
          vec3 a = mod(p*s, mx11*5.)-(mx11*2.5);
          s *= 3.0;
-         // 3*abs(a)
          vec3 r = mx21*2. - 3.*abs(a);
-         float aa = vmax(r.yz);
-         float ab = vmax(r.xz);
-         float ac = vmax(r.xy);
+         float aa = max(r.y, r.z);
+         float ab = max(r.x, r.z);
+         float ac = max(r.x, r.y);
          float c = (min(aa, min(ab,ac))-.22)/s;
          d = max(d,-c);
     }
-    return texcol(p).y*.01 + d;
+    return texcol(p).y*.03 + d;
 }
 
 // taken from http://iquilezles.org/www/articles/normalsSDF/normalsSDF.htm
@@ -131,11 +121,12 @@ void main() {
     float speed = mx51*1100.;
     float sintime = sin(time/speed);
     float costime = cos(time/speed);
+    // original eye
     vec3 eye = vec3(sintime*10., sintime*2.+2., costime*10.);
-    //eye = vec3(-.2,2., -2.);
+
+    // original lookat
     vec3 lookat = vec3(costime*.5, 2.*mx61, sintime*.5);
-    //vec3 lookat = vec3(cos(time/2.)*.5, .1, sin(time/2.)*.5);
-    //lookat = vec3(0.,.0,.0);
+
     vec3 fwd = normalize(lookat-eye);
     vec3 right = normalize(vec3(fwd.z, 0., -fwd.x ));
     vec3 up = normalize(cross(fwd, right));
@@ -144,7 +135,7 @@ void main() {
     vec2 uv = gl_FragCoord.xy * 2.0 / resolution - 1.0;
     float aspect = resolution.x/resolution.y;
     vec3 ro = eye;
-    vec3 rd = normalize(fwd * (mx41*1500.) + right * (uv.x*aspect) + up * uv.y);
+    vec3 rd = normalize(fwd * (mx41*15.) + right * (uv.x*aspect) + up * uv.y);
 
     // enviroment
     l1.color = vec3(1.,1.,1.);
