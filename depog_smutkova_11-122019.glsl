@@ -86,8 +86,7 @@ float vmax(in vec3 p ) {
 
 // sony height mapping
 vec3 texcol(vec3 p) {
-    p*=3.;
-    return texture2D(sony, vec2(-p.x*.15+.45,-p.z*.3+4.)).rgb;
+    return texture2D(sony, vec2(p.x*.27+.5,p.z*.24+.5)).rgb;
 }
 
 float scene(vec3 p) {
@@ -118,11 +117,12 @@ vec3 normal(vec3 p) {
 }
 
 void main() {
-    float speed = mx51*1100.;
+    float speed = mx51*180.;
     float sintime = sin(time/speed);
     float costime = cos(time/speed);
     // original eye
     vec3 eye = vec3(sintime*10., sintime*2.+2., costime*10.);
+    eye = vec3(0.,10.,0.);
 
     // original lookat
     vec3 lookat = vec3(costime*.5, 2.*mx61, sintime*.5);
@@ -164,7 +164,7 @@ void main() {
             color += col * clamp(.4*n.y+.5, 0., .01);
             // add step fog
             color += vec3(float(i)/float(MAXSTEPS),0.,0.)*2.;
-            color /= texcol(p);
+            color /= texcol(p) *.9;
             break;
         }
         step += d;
