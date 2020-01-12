@@ -1,0 +1,411 @@
+depog_smutkova_11-122019.glsl
+!!NVfp5.0
+# cgc version 3.1.0013, build date Apr 24 2012
+# command line args: -oglsl -strict -glslWerror -profile gp5fp
+# source file: depog_smutkova_11-122019.glsl
+#vendor NVIDIA Corporation
+#version 3.1.0.13
+#profile gp5fp
+#program main
+#semantic resolution
+#semantic sony
+#semantic time
+#semantic m0
+#semantic m1
+#semantic m2
+#semantic m3
+#semantic m4
+#semantic m5
+#semantic m6
+#semantic m7
+#semantic m8
+#semantic m9
+#semantic m10
+#semantic m11
+#semantic m12
+#semantic m13
+#semantic m14
+#semantic m15
+#semantic m16
+#semantic m17
+#semantic m18
+#semantic m19
+#semantic m20
+#semantic m21
+#semantic m22
+#semantic m23
+#semantic m24
+#semantic m25
+#semantic m26
+#semantic m27
+#semantic m28
+#semantic m29
+#semantic m30
+#semantic m31
+#semantic m32
+#semantic m33
+#semantic m34
+#semantic m35
+#semantic m36
+#semantic m37
+#semantic m38
+#semantic m39
+#semantic m40
+#semantic m41
+#semantic m42
+#semantic m43
+#semantic m44
+#semantic m45
+#semantic m46
+#semantic m47
+#semantic m48
+#semantic m49
+#semantic m50
+#semantic m51
+#semantic m52
+#semantic m53
+#semantic m54
+#semantic m55
+#semantic m56
+#semantic m57
+#semantic m58
+#semantic m59
+#var float4 gl_FragCoord : $vin.WPOS : WPOS : -1 : 1
+#var float4 PixelColor : $vout.COL00 : COL0[0] : -1 : 1
+#var float2 resolution :  : c[0] : -1 : 1
+#var sampler2D sony :  : texunit 0 : -1 : 1
+#var float time :  : c[1] : -1 : 1
+#var float m0 :  :  : -1 : 0
+#var float m1 :  :  : -1 : 0
+#var float m2 :  :  : -1 : 0
+#var float m3 :  :  : -1 : 0
+#var float m4 :  :  : -1 : 0
+#var float m5 :  :  : -1 : 0
+#var float m6 :  :  : -1 : 0
+#var float m7 :  :  : -1 : 0
+#var float m8 :  : c[2] : -1 : 1
+#var float m9 :  :  : -1 : 0
+#var float m10 :  :  : -1 : 0
+#var float m11 :  :  : -1 : 0
+#var float m12 :  :  : -1 : 0
+#var float m13 :  :  : -1 : 0
+#var float m14 :  : c[3] : -1 : 1
+#var float m15 :  :  : -1 : 0
+#var float m16 :  :  : -1 : 0
+#var float m17 :  :  : -1 : 0
+#var float m18 :  :  : -1 : 0
+#var float m19 :  :  : -1 : 0
+#var float m20 :  : c[4] : -1 : 1
+#var float m21 :  :  : -1 : 0
+#var float m22 :  :  : -1 : 0
+#var float m23 :  :  : -1 : 0
+#var float m24 :  :  : -1 : 0
+#var float m25 :  :  : -1 : 0
+#var float m26 :  : c[5] : -1 : 1
+#var float m27 :  :  : -1 : 0
+#var float m28 :  :  : -1 : 0
+#var float m29 :  :  : -1 : 0
+#var float m30 :  :  : -1 : 0
+#var float m31 :  :  : -1 : 0
+#var float m32 :  : c[6] : -1 : 1
+#var float m33 :  :  : -1 : 0
+#var float m34 :  :  : -1 : 0
+#var float m35 :  :  : -1 : 0
+#var float m36 :  :  : -1 : 0
+#var float m37 :  :  : -1 : 0
+#var float m38 :  : c[7] : -1 : 1
+#var float m39 :  :  : -1 : 0
+#var float m40 :  :  : -1 : 0
+#var float m41 :  :  : -1 : 0
+#var float m42 :  :  : -1 : 0
+#var float m43 :  :  : -1 : 0
+#var float m44 :  :  : -1 : 0
+#var float m45 :  :  : -1 : 0
+#var float m46 :  :  : -1 : 0
+#var float m47 :  :  : -1 : 0
+#var float m48 :  :  : -1 : 0
+#var float m49 :  :  : -1 : 0
+#var float m50 :  :  : -1 : 0
+#var float m51 :  :  : -1 : 0
+#var float m52 :  :  : -1 : 0
+#var float m53 :  :  : -1 : 0
+#var float m54 :  :  : -1 : 0
+#var float m55 :  :  : -1 : 0
+#var float m56 :  :  : -1 : 0
+#var float m57 :  :  : -1 : 0
+#var float m58 :  :  : -1 : 0
+#var float m59 :  :  : -1 : 0
+PARAM c[8] = { program.local[0..7] };
+TEMP R0, R1, R2, R3, R4, R5, R6, R7, R8;
+TEMP RC, HC;
+OUTPUT result_color0 = result.color;
+TEXTURE texture0 = texture[0];
+MOV.F R0.z, c[7].x;
+MOV.F R0.x, c[6];
+MUL.F R0.x, R0, {0.0078740157};
+MUL.F R0.x, R0, {1100};
+DIV.F R0.x, c[1], R0.x;
+SIN.F R0.y, R0.x;
+MUL.F R0.w, R0.z, {0.0078740157}.x;
+COS.F R0.x, R0.x;
+MUL.F R1.z, R0.x, {10}.x;
+MOV.F R1.w, c[5].x;
+MUL.F R1.x, R0.y, {10};
+MAD.F R1.y, R0, {2}.x, {2}.x;
+MUL.F R0.z, R0.y, {0.5}.x;
+MUL.F R0.y, R0.w, {2}.x;
+MUL.F R0.x, R0, {0.5};
+ADD.F R0.xyz, -R1, R0;
+DP3.F R0.w, R0, R0;
+RSQ.F R0.w, R0.w;
+MUL.F R2.xyz, R0.w, R0;
+MOV.F R0.x, R2.z;
+MOV.F R0.z, -R2.x;
+MOV.F R0.y, {0}.x;
+DP3.F R0.w, R0, R0;
+RSQ.F R0.w, R0.w;
+MUL.F R3.xyz, R0.w, R0;
+MUL.F R0.xyz, R2.zxyw, R3.yzxw;
+MAD.F R0.xyz, R2.yzxw, R3.zxyw, -R0;
+DP3.F R0.w, R0, R0;
+RSQ.F R0.w, R0.w;
+MUL.F R1.w, R1, {0.0078740157}.x;
+MUL.F R2.xyz, R2, R1.w;
+MUL.F R0.xyz, R0.w, R0;
+RCP.F R4.y, c[0].y;
+RCP.F R4.x, c[0].x;
+MUL.F R4.xy, fragment.position, R4;
+MAD.F R4.xy, R4, {2, -1}.x, {2, -1}.y;
+DIV.F R2.w, c[0].x, c[0].y;
+MUL.F R2.w, R4.x, R2;
+MUL.F R3.xyz, R3, R2.w;
+MAD.F R2.xyz, R2, {150}.x, R3;
+MAD.F R0.xyz, R0, R4.y, R2;
+DP3.F R0.w, R0, R0;
+RSQ.F R0.w, R0.w;
+MUL.F R2.xyz, R0.w, R0;
+MOV.F R0.x, c[2];
+MUL.F R0.w, R0.x, {0.0078740157}.x;
+MOV.F R0.x, c[3];
+MOV.F R0.y, c[1].x;
+MUL.F R0.y, R0, {0.25}.x;
+MUL.F R1.w, R0.x, {0.0078740157}.x;
+MOV.F R0.x, c[4];
+SIN.F R0.z, R0.y;
+MUL.F R2.w, R0.x, {0.0078740157}.x;
+COS.F R0.x, R0.y;
+MOV.F R5.xyz, {0}.x;
+MUL.F R3.x, R0.z, {4};
+MOV.F R3.y, {2.5}.x;
+MUL.F R3.z, R0.x, {3}.x;
+MOV.F R3.w, {0}.x;
+MOV.S R4.w, {0}.x;
+REP.S {256};
+MAD.F R4.xyz, R2, R3.w, R1;
+MAD.F R0.xyz, -R2.w, {2}.x, |R4|;
+MAX.F R0.y, R0, R0.z;
+MAX.F R5.w, R0.x, R0.y;
+MOV.F R6.w, {1}.x;
+REP.S {5};
+MUL.F R0.xyz, R6.w, R4;
+MUL.F R7.x, R0.w, {5};
+DIV.F R6.xyz, R0, R7.x;
+FLR.F R6.xyz, R6;
+MAD.F R0.xyz, -R7.x, R6, R0;
+MAD.F R0.xyz, -R0.w, {2.5}.x, R0;
+MUL.F R0.xyz, -|R0|, {3}.x;
+MAD.F R0.xyz, R1.w, {2}.x, R0;
+MAX.F R6.x, R0, R0.y;
+MAX.F R0.x, R0, R0.z;
+MIN.F R6.x, R0, R6;
+MAX.F R0.x, R0.y, R0.z;
+MIN.F R0.x, R0, R6;
+MUL.F R6.w, R6, {3}.x;
+ADD.F R0.x, R0, {-0.22};
+DIV.F R0.x, R0, R6.w;
+MAX.F R5.w, R5, -R0.x;
+ENDREP;
+MAD.F R0.xy, R4.xzzw, {0.27000001, 0.23999999, 0.5}, {0.27000001, 0.23999999, 0.5}.z;
+TEX.F R0.y, R0, texture0, 2D;
+MAD.F R0.x, -R0.y, {0.0099999998}, R5.w;
+ADD.F R5.w, R0.x, {0.0099999998}.x;
+SGT.F R0.x, R5.w, {10};
+TRUNC.U.CC HC.x, R0;
+IF    NE.x;
+MOV.U.CC RC.x, {1};
+BRK   (GT.x);
+ENDIF;
+SLT.F R0.x, R5.w, {9.9999997e-06};
+TRUNC.U.CC HC.x, R0;
+IF    NE.x;
+ADD.F R0.xyz, R4, {9.9999997e-06, -9.9999997e-06}.xyyw;
+MAD.F R5.xyz, -R2.w, {2}.x, |R0|;
+MAX.F R5.y, R5, R5.z;
+MAX.F R6.w, R5.x, R5.y;
+MOV.F R7.x, {1};
+REP.S {5};
+MUL.F R5.xyz, R7.x, R0;
+MUL.F R7.y, R0.w, {5}.x;
+DIV.F R6.xyz, R5, R7.y;
+FLR.F R6.xyz, R6;
+MAD.F R5.xyz, -R7.y, R6, R5;
+MAD.F R5.xyz, -R0.w, {2.5}.x, R5;
+MUL.F R5.xyz, -|R5|, {3}.x;
+MAD.F R5.xyz, R1.w, {2}.x, R5;
+MAX.F R6.x, R5, R5.y;
+MAX.F R5.x, R5, R5.z;
+MIN.F R6.x, R5, R6;
+MAX.F R5.x, R5.y, R5.z;
+MIN.F R5.x, R5, R6;
+MUL.F R7.x, R7, {3};
+ADD.F R5.x, R5, {-0.22};
+DIV.F R5.x, R5, R7.x;
+MAX.F R6.w, R6, -R5.x;
+ENDREP;
+MAD.F R0.xy, R0.xzzw, {0.27000001, 0.23999999, 0.5}, {0.27000001, 0.23999999, 0.5}.z;
+ADD.F R5.xyz, R4, {-9.9999997e-06, 9.9999997e-06}.xxyw;
+MAD.F R6.xyz, -R2.w, {2}.x, |R5|;
+TEX.F R0.y, R0, texture0, 2D;
+MAX.F R0.z, R6.y, R6;
+MAD.F R0.x, -R0.y, {0.0099999998}, R6.w;
+MAX.F R7.x, R6, R0.z;
+ADD.F R6.w, R0.x, {0.0099999998}.x;
+MOV.F R7.y, {1}.x;
+REP.S {5};
+MUL.F R0.xyz, R7.y, R5;
+MUL.F R7.z, R0.w, {5}.x;
+DIV.F R6.xyz, R0, R7.z;
+FLR.F R6.xyz, R6;
+MAD.F R0.xyz, -R7.z, R6, R0;
+MAD.F R0.xyz, -R0.w, {2.5}.x, R0;
+MUL.F R0.xyz, -|R0|, {3}.x;
+MAD.F R0.xyz, R1.w, {2}.x, R0;
+MAX.F R6.x, R0, R0.y;
+MAX.F R0.x, R0, R0.z;
+MIN.F R6.x, R0, R6;
+MAX.F R0.x, R0.y, R0.z;
+MIN.F R0.x, R0, R6;
+MUL.F R7.y, R7, {3}.x;
+ADD.F R0.x, R0, {-0.22};
+DIV.F R0.x, R0, R7.y;
+MAX.F R7.x, R7, -R0;
+ENDREP;
+MAD.F R0.xy, R5.xzzw, {0.27000001, 0.23999999, 0.5}, {0.27000001, 0.23999999, 0.5}.z;
+ADD.F R6.xyz, R4, {-9.9999997e-06, 9.9999997e-06}.xyxw;
+MAD.F R5.xyz, -R2.w, {2}.x, |R6|;
+TEX.F R0.y, R0, texture0, 2D;
+MAX.F R0.z, R5.y, R5;
+MAD.F R0.x, -R0.y, {0.0099999998}, R7;
+MAX.F R7.y, R5.x, R0.z;
+ADD.F R7.x, R0, {0.0099999998};
+MOV.F R7.z, {1}.x;
+REP.S {5};
+MUL.F R0.xyz, R7.z, R6;
+MUL.F R7.w, R0, {5}.x;
+DIV.F R5.xyz, R0, R7.w;
+FLR.F R5.xyz, R5;
+MAD.F R0.xyz, -R7.w, R5, R0;
+MAD.F R0.xyz, -R0.w, {2.5}.x, R0;
+MUL.F R0.xyz, -|R0|, {3}.x;
+MAD.F R0.xyz, R1.w, {2}.x, R0;
+MAX.F R5.x, R0, R0.y;
+MAX.F R0.x, R0, R0.z;
+MIN.F R5.x, R0, R5;
+MAX.F R0.x, R0.y, R0.z;
+MIN.F R0.x, R0, R5;
+MUL.F R7.z, R7, {3}.x;
+ADD.F R0.x, R0, {-0.22};
+DIV.F R0.x, R0, R7.z;
+MAX.F R7.y, R7, -R0.x;
+ENDREP;
+MAD.F R0.xy, R6.xzzw, {0.27000001, 0.23999999, 0.5}, {0.27000001, 0.23999999, 0.5}.z;
+ADD.F R5.xyz, R4, {9.9999997e-06}.x;
+MAD.F R6.xyz, -R2.w, {2}.x, |R5|;
+TEX.F R0.y, R0, texture0, 2D;
+MAD.F R0.x, -R0.y, {0.0099999998}, R7.y;
+MAX.F R0.z, R6.y, R6;
+MAX.F R7.y, R6.x, R0.z;
+ADD.F R7.z, R0.x, {0.0099999998}.x;
+MOV.F R7.w, {1}.x;
+REP.S {5};
+MUL.F R0.xyz, R7.w, R5;
+MUL.F R8.x, R0.w, {5};
+DIV.F R6.xyz, R0, R8.x;
+FLR.F R6.xyz, R6;
+MAD.F R0.xyz, -R8.x, R6, R0;
+MAD.F R0.xyz, -R0.w, {2.5}.x, R0;
+MUL.F R0.xyz, -|R0|, {3}.x;
+MAD.F R0.xyz, R1.w, {2}.x, R0;
+MAX.F R6.x, R0, R0.y;
+MAX.F R0.x, R0, R0.z;
+MIN.F R6.x, R0, R6;
+MAX.F R0.x, R0.y, R0.z;
+MIN.F R0.x, R0, R6;
+MUL.F R7.w, R7, {3}.x;
+ADD.F R0.x, R0, {-0.22};
+DIV.F R0.x, R0, R7.w;
+MAX.F R7.y, R7, -R0.x;
+ENDREP;
+MAD.F R0.xy, R5.xzzw, {0.27000001, 0.23999999, 0.5}, {0.27000001, 0.23999999, 0.5}.z;
+MUL.F R6.xy, R7.x, {-1, 1};
+MAD.F R5.xyz, R6.w, {1, -1}.xyyw, R6.xxyw;
+TEX.F R0.y, R0, texture0, 2D;
+MOV.U.CC RC.x, {1};
+MAD.F R5.xyz, R7.z, {-1, 1}.xyxw, R5;
+MAD.F R0.x, -R0.y, {0.0099999998}, R7.y;
+ADD.F R0.xyz, R0.x, R5;
+ADD.F R5.xyz, R3, -R4;
+ADD.F R7.xyz, -R4, R1;
+ADD.F R0.xyz, R0, {0.0099999998}.x;
+DP3.F R6.y, R5, R5;
+DP3.F R6.x, R0, R0;
+RSQ.F R6.y, R6.y;
+RSQ.F R6.x, R6.x;
+DP3.F R6.w, R7, R7;
+RSQ.F R6.w, R6.w;
+MUL.F R0.xyz, R6.x, R0;
+MUL.F R5.xyz, R6.y, R5;
+DP3.F R6.x, R0, -R5;
+MUL.F R6.xyz, R0, R6.x;
+DP3.F.SAT R0.x, R0, R5;
+MAD.F R6.xyz, -R6, {2}.x, -R5;
+DP3.F R4.y, R6, R6;
+RSQ.F R4.y, R4.y;
+MAD.F R0.y, R0, {0.40000001, 0.5}.x, {0.40000001, 0.5};
+MUL.F R7.xyz, R6.w, R7;
+MUL.F R6.xyz, R4.y, R6;
+DP3.F R4.y, R6, R7;
+MIN.F R4.y, R4, {1.2}.x;
+MAX.F R4.y, R4, {0}.x;
+ADD.F R0.z, R0.x, R4.y;
+MIN.F.SAT R4.y, R0, {0.0099999998}.x;
+MAD.F R0.xy, R4.xzzw, {0.27000001, 0.23999999, 0.5}, {0.27000001, 0.23999999, 0.5}.z;
+ADD.F R5.x, R0.z, R4.y;
+TEX.F R0.xyz, R0, texture0, 2D;
+MUL.F R0.xyz, R0, {0.89999998}.x;
+I2F.S R4.x, R4.w;
+MOV.F R4.yz, {0}.x;
+MUL.F R4.x, R4, {0.00390625};
+MUL.F R4.xyz, R4, {2}.x;
+MAD.F R4.xyz, R5.x, {0.40000001}.x, R4;
+RCP.F R0.x, R0.x;
+RCP.F R0.z, R0.z;
+RCP.F R0.y, R0.y;
+MUL.F R5.xyz, R4, R0;
+BRK   (GT.x);
+ENDIF;
+ADD.F R3.w, R3, R5;
+ADD.S R4.w, R4, {1}.x;
+ENDREP;
+MUL.F R0.x, R3.w, R3.w;
+MUL.F R0.x, R0, R3.w;
+MUL.F R0.x, R0, {-0.003};
+EX2.F R0.x, R0.x;
+MAD.F R0.xyz, -R5, -R0.x, -R5;
+ADD.F R0.xyz, R5, R0;
+POW.F result_color0.x, R0.x, {0.45454544}.x;
+POW.F result_color0.y, R0.y, {0.45454544}.x;
+POW.F result_color0.z, R0.z, {0.45454544}.x;
+MOV.F result_color0.w, {1}.x;
+END
+# 267 instructions, 9 R-regs
