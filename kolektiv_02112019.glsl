@@ -382,7 +382,7 @@ vec3 dtwist(in vec3 p)
     return q;
 }
 
-float blend(in vec3 d1, in vec3 d2, in float k)
+vec3 blend(in vec3 d1, in vec3 d2, in float k)
 {
 	return k * d1 + (1.-k) * d2;
 }
@@ -478,8 +478,8 @@ vec3 lights(float type, vec3 cam_rot, float rotation, float distort, float color
         }
         vec3 sp = ro + rd*dist*colormod*10.;
         vec3 surfNormal = getNormal(sp*sp, type, rotation, distort);
-        //vec3 lp = vec3(1.5*sin(time*.5), 0.75+0.25*cos(time*0.5), -1.0);
-        vec3 lp = vec3(noise2f(p),noise2f(p*p),noise2f(p*p*p));
+        vec3 lp = vec3(1.5*sin(time*.5), 0.75+0.25*cos(time*0.5), -1.0);
+        //vec3 lp = vec3(noise2f(p),noise2f(p*p),noise2f(p*p*p));
         vec3 ld = lp-sp;
         vec3 lcolor = vec3(1.,1.,1.);
         float len = length( ld );
@@ -519,6 +519,15 @@ float scene_kolektiv(in vec3 p, float type) {
 		float s2 = sphere(pp, vec3(0.,0.,-1.*dst), ss);
 		//return smin(max(-b2,b1), smin(s1,s2,.25), .25);
 		return smin(max(-b4, max(-b3, max(-b2, b1))), smin(s1,s2,.25),.25) + sinusoidBumps(pp)*mx31;
+	}
+	if (type == 1.) {
+		// two blobby objects twisted
+		vec3 pp = twist(p,mx21);
+		float bumps = sinusoidBumps(pp)*mx31;
+		float lel =  box(pp, vec3(0.3,0.3,0.4));//sphere(p, vec3(0.,0.,-1.*mx26), 0.4);
+		float lal = sphere(pp, vec3(0.,0.,(mx26-.5)*4.), 0.4) + bumps;
+		float lul = sphere(pp, vec3(0.,0.,-(mx26-.5)*4.), 0.4) + bumps;
+		return smin(min(lal,lul),lel,1.25);
 	}
 }
 
@@ -560,11 +569,11 @@ float scene_dev(in vec3 p, float type) {
 	if (type == 6.) {
 		// two blobby objects twisted blended with a hex
 		vec3 pp = twist(p, mx21);
-		float lel =  box(pp-vec3(0.,1.-mx35*2.,1.-mx34*2), vec3(0.3,0.3,0.4));//sphere(p, vec3(0.,0.,-1.*mx26), 0.4);
+		float lel =  box(pp-vec3(0.,1.-mx35*2.,1.-mx34*2.), vec3(0.3,0.3,0.4));//sphere(p, vec3(0.,0.,-1.*mx26), 0.4);
 		float lal = sphere(pp, vec3(0.,mx26,0.), 0.4);
 		float s1 = smin(lal,lel,.25);
-		float s2 = hex(p, vec3(0.7,0.3,0.4));
-		return blend(s1, s2, mx36);
+		float s2 = hex(p, vec2(0.7,0.3));
+		return mix(s1, s2, mx36);
 	}
 	if (type == 7.) {
 		// a smooth crucifix LOL
@@ -573,7 +582,7 @@ float scene_dev(in vec3 p, float type) {
 		vec3 pp = twist(p, mx21);
 		float c1 = smin(box(pp-vec3(.0,.3,.0),vec3(.4,.1,.1)),box(pp,vec3(.1,.7,.1)),.1);
 		float c2 = smin(box(pp-vec3(.4,.3,.0),vec3(.4,.1,.1)),box(pp-vec3(.4,.0,.0),vec3(.1,.7,.1)),.1);
-		return blend(c1, c2, mx36);
+		return mix(c1, c2, mx36);
 	}
 }
 
@@ -671,11 +680,11 @@ void main(void) {
 	p = gl_FragCoord.xy / resolution.xy;
 	asp = resolution.x / resolution.y;
 	c = ck;//cnt(50);
-	c = vec3(noise2f(p*rand*1000.)*mx91*m2,0.,0.);
+	c += vec3(noise2f(p*rand*1000.)*mx91*m2,0.,0.);
 
 	c+=feedb_sqr(mx86, mx85, mx76, mx75, mx81, mx71, mx61, c)*mx51;
 
-	float type = 0.;
+	float type = mx13;
 	vec3 cam_rotation = vec3(mx16*PI*cnt(5000),mx15*PI,mx14*PI);
 	float rotation = cnt(10000)*360.;
 	c += lights_dev(type, cam_rotation, rotation, c);
