@@ -30,7 +30,7 @@ float box(vec3 p, vec3 b, float r) {
 }
 
 float plane(vec3 p) {
-    return box(p-vec3(.0,-1.*.5,.0), vec3(15.,.01,15.), .0);
+    return p.y;
 }
 
 float scene(vec3 p) {
