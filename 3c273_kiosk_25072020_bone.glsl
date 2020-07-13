@@ -145,10 +145,10 @@ float bumps(in vec3 p, in float frq) {
 }
 
 vec3 dom_distort_iq(in vec3 q) {
-        q.xyz += 1.000*sin(  2.0*q.xzy )*.2;
-        q.xyz += 0.500*sin(  4.0*q.yzx )*.2;
-        q.xyz += 0.250*sin(  8.0*q.yzx )*.1;
-        q.xyz += 0.050*sin( 26.0*q.zyx )*.3;
+        q.xyz += sin(  2.0*q.xzy )*.2;
+        q.xyz += sin(  4.0*q.yzx )*.05;
+        q.xyz += sin(  8.0*q.yzx )*.025;
+        q.xyz += tan( 26.0*q.zyx )*.045;
         return q;
 }
 
@@ -183,8 +183,11 @@ float cylinder(vec3 p, float r, float height) {
 }
 
 float bone (in vec3 p) {
-    p.y*=1.7;
-    p = dom_distort_iq(p);
+    p = rot(p, vec3(1.,1.,1.), time*100.);
+
+    p.y = p.y + 4.;
+    p.y*=.6;
+    p = p * dom_distort_iq(p)*.2;
     // joints
     float s1 = sphere(p-vec3(-1.9, 1.5, .28), 0.19);
     float s2 = sphere(p-vec3(-1.9, 1.5, -.28), 0.09);
@@ -197,7 +200,8 @@ float bone (in vec3 p) {
 }
 
 float scene(vec3 p) {
-    return min(bone(p), plane(p));
+    //return min(bone(p), plane(p));
+    return bone(p);
 }
 
 // taken from http://iquilezles.org/www/articles/normalsSDF/normalsSDF.htm
@@ -231,8 +235,8 @@ shading get_shading(material m, light l, vec3 p, vec3 n, vec3 ld, vec3 ed) {
 }
 
 void main() {
-    float orbit = 5.;
-    vec3 ro = vec3(cos(time/4.)*orbit, 2., sin(time/4.)*orbit); // ray origin, here also known as 'eye'
+    float orbit = 4.;
+    vec3 ro = vec3(cos(time/4.)*orbit, 1.2, sin(time/4.)*orbit); // ray origin, here also known as 'eye'
     //vec3 ro = vec3(1.,1.8,1.);
     vec3 lookat = vec3(-0.9, 0.,0.);
     vec3 fwd = normalize(lookat-ro);
@@ -245,11 +249,11 @@ void main() {
     // enviroment
     l1.color = vec3(1.,1.,1.);
     l1.position = vec3(sin(time/4.)*4.,2.5,cos(time/4.)*3.);
-    color = vec3(.0);
+    color = vec3(0.);
     sky = color;
 
     // raymarch a scene
-    float step = 1.;
+    float step = .9;
     float d = 1.;
     vec3 p;
     for (int i = 0; i < MAXSTEPS; i++) {
@@ -280,9 +284,14 @@ void main() {
         }
 
         if (bone(p) < eps) {
-            m1.color = vec3(.9);
-            m1.reflection_ratio = 0.01;
-            m1.shininess = 3.;
+            m1.color = vec3(.52,.42,3.3)*1.;
+            m1.color -= vec3(abs(p.x*n.x*10.)*.1);
+            m1.color *= vec3(mod(sin(p.x*p.z*p.z)*10.,.23))*1.;
+            m1.color = m1.color + dom_distort_iq(tan(p*p.x*30.))*.1;
+            m1.color = m1.color*m1.color;
+            //m1.color = vec3(n.x/n.y*1.69,.49,.35)*10.;
+            m1.reflection_ratio = .2;
+            m1.shininess = 20.;
             s1 = get_shading(m1, l1, p, n, ld, ed);
             color = m1.color * s1.diffuse * s1.shadow/2.;
             color += s1.specular;
