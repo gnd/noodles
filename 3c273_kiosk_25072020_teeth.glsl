@@ -210,8 +210,12 @@ float bone (in vec3 p) {
     return smin(t, smin(smin(s1, s2, 20.), smin(s3, s4, 20.), 1.), 2.5);
 }
 
+
+// TODO
+// make both tooths react to p0 - p4
+// add a slight sound jitter on final smin
+// make two more teeth, one of them walking
 float tooth1(in vec3 p) {
-    //float b = box(p-vec3(.0,2.,.0), vec3(.2,.3,.2));
     float mov = sin(time*10.)+1.0;
     float x = .0;
     float z = 0.;
@@ -236,12 +240,10 @@ float tooth1(in vec3 p) {
     float s = sphere(p-vec3(.0,2.4,.0), .8);
     p = pp;
 
-    //return smin(s, smin(b, min(b1,min(b2,smin(b3,b4, 22.))), 30.), 5.);
     return smin(s, min(b1,min(b2,smin(b3,b4, 22.))), 3.);
 }
 
 float tooth2(in vec3 p) {
-    //float b = box(p-vec3(.0,2.,.0), vec3(.2,.3,.2));
     float mov = sin(time*5.)+1.0;
     float x = .5;
     float z = 2.;
@@ -308,7 +310,7 @@ void main() {
     float orbit = 5.;
     vec3 ro = vec3(cos(time/4.)*orbit, 2., sin(time/4.)*orbit); // ray origin, here also known as 'eye'
     //vec3 ro = vec3(1.,1.8,1.);
-    vec3 lookat = vec3(-0.9, 0.,0.);
+    vec3 lookat = vec3(-0.9, 1.4,2.);
     vec3 fwd = normalize(lookat-ro);
     vec3 right = normalize(vec3(fwd.z, 0., -fwd.x));
     vec3 up = normalize(cross(fwd, right));
@@ -319,6 +321,7 @@ void main() {
     // enviroment
     l1.color = vec3(1.,1.,1.);
     l1.position = vec3(sin(time/4.)*4.,2.5,cos(time/4.)*3.);
+    l1.position = vec3(4., 2.5, 3.);
     color = vec3(.0);
     sky = color;
 
@@ -354,13 +357,13 @@ void main() {
         }
 
         if (tooth1(p) < eps) {
-            m1.color = vec3(.9);
-            m1.reflection_ratio = 0.01;
-            m1.shininess = 3.;
+            m1.color = vec3(-1.,0.0,.0);
+            m1.color += vec3(tan((p+cnt(1000))*5.).x,.0,.0);
+            m1.reflection_ratio = 7.5;
+            m1.shininess = 20.1;
             s1 = get_shading(m1, l1, p, n, ld, ed);
             color = m1.color * s1.diffuse * s1.shadow/2.;
             color += s1.specular;
-            color *= s1.aoc;
             color += m1.color * s1.amb *.2;
         }
 
