@@ -6,6 +6,11 @@ uniform float time;
 #define MAXDIST 30.0
 #define eps 0.0001
 #define PI 3.14159265
+const float tau = 6.28318530717958647692;
+
+uniform float m8,m14;
+float mx11 = m8/127.;
+float mx21 = m14/127.;
 
 struct light { vec3 position; vec3 color; };
 struct material { vec3 color; float reflection_ratio; float shininess; };
@@ -16,15 +21,16 @@ material m1;
 shading s1;
 
 vec3 sky, color; // 'sky color'
-//vec3 ro = vec3(3., 2., 3.);
-vec3 ro = vec3(cos(time/4.)*3., 2., sin(time/4.) *3.);
+vec3 ro = vec3(3.,.2, 3.);
+//vec3 ro = vec3(cos(time/4.)*3., 2., sin(time/4.) *3.);
 vec3 lookat = vec3(0.,0.,0.);
 vec3 fwd = normalize(lookat-ro);
 vec3 right = normalize(vec3(fwd.z, 0., -fwd.x));
 vec3 up = normalize(cross(fwd, right));
-vec2 uv = gl_FragCoord.xy * 2.0 / resolution - 1.0;
+vec2 uv = gl_FragCoord.xy * 2.0 / resolution - 1.0; // makes (0,0) at the center of the screen
 float aspect = resolution.x/resolution.y;
 vec3 rd = normalize(1.4*fwd + uv.x*right*aspect + uv.y*up);
+vec3 roo = ro + vec3(sin(time), .0, 0.);
 
 mat4 inverse(mat4 m) {
   float
@@ -87,59 +93,27 @@ float sphere( vec3 p, float r ) {
     return length(p) - r;
 }
 
-float maxcomp(in vec3 p ) {
-    return max(p.x,max(p.y,p.z));
+float sclera(vec3 p, vec3 center, float r) {
+    return length(p-center) - r;
 }
 
-vec3 opRep( in vec3 p, in vec3 c )
-{
-    return mod(p+0.5*c,c)-0.5*c;
+float iris(vec3 p, vec3 c, float r) {
+    vec3 center = normalize(roo-c)*.37 + c;
+    return length(p-center) - r*.7;
 }
 
-float box(vec3 p, vec3 b) { //cheap box
-	return maxcomp(abs(p) - b);
+float pupil(vec3 p, vec3 c, float r) {
+    vec3 center = normalize(roo-c)*.8 + c;
+    return length(p-center) - r*.33;
 }
 
-float bbox(vec3 p, vec3 b) {
-	vec3 d = abs(p) - b;
-	return length(max(d, vec3(0))) + maxcomp(min(d, vec3(0)));
-}
-
-float cbox(in vec3 p) {
-    p.x = p.x * sin(p.x)*.4;
-    p = rot(p, vec3(0.,1.,0.), mod(time*50., 360));
-    p = opRep(p, vec3(1., 0., .3));
-    p = rot(p, vec3(1.,1.,.0), mod(time*50., 360));
-    return bbox(p - vec3(0.,.9,.0), vec3(.1,.7,.2));
-}
-
-float plane(vec3 p) {
-    return p.y;
-}
-
-float sclera(vec3 p, float r) {
-    return sphere(p, r);
-}
-
-float iris(vec3 p, float r) {
-    return sphere(p, r);
-}
-
-float pupil(vec3 p, float r) {
-    return sphere(p, r);
-}
-
-float eye(vec3 p) {
-    vec3 center = vec3(0.,.9,.0);
-    float sclera_dst = sclera(p - center, 1.);
-    vec3 iris_c = normalize(ro) + vec3(.0,.65,.0);
-    float iris_dst = iris(p-iris_c, .4);
-    float pupil_dst = pupil(p - (ro)/2. - center/2., .1);
-    return min(pupil_dst, min(sclera_dst, iris_dst));
+float eye(vec3 p, vec3 c, float r) {
+    return min(pupil(p, c, r), min(sclera(p, c, r), iris(p, c, r)));
 }
 
 float scene(vec3 p) {
-    return eye(p);
+    vec3 c = vec3(0., 0.9, .0);
+    return eye(p, c, 1.);
 }
 
 // taken from http://iquilezles.org/www/articles/normalsSDF/normalsSDF.htm
@@ -206,12 +180,13 @@ float noise2f( in vec2 p ) {
 }
 
 float eyp(vec2 uv) {
-	return noise2f( vec2(20.0*uv/pow(length(uv),.9) ) );
+	return noise2f( vec2(20.0*uv/pow(length(uv),0.9) ) );
 }
 
-float sinbumps(in vec3 p){
-    float frq = 1.7;
-    return sin(p.x*frq+time*0.57)*atan(p.y*frq+time*2.17)*sin(p.z*frq-time*1.31)*sin(time)*1.7;
+vec3 ApplyEyeRotation( vec3 p, vec4 rotation ) {
+	p.yz = rotation.z*p.yz + rotation.w*p.zy*vec2(1,-1);
+	p.xz = rotation.x*p.xz + rotation.y*p.zx*vec2(1,-1);
+	return p;
 }
 
 void main() {
@@ -233,23 +208,15 @@ void main() {
     }
     if( ray_step>MAXDIST ) ray_step=-1.;
 
-    // apply materials
     if (ray_step > .0) {
-        // precompute stuff
         vec3 n = normal(p);
         vec3 ld = normalize(l1.position-p);
         vec3 ed = normalize(ro-p);
 
-        if (sclera(p - vec3(0.,.9,.0), 1.) < eps) {
-            m1.color = vec3(1.)*2.;
-            //m1.color = vec3(abs(sin(p.x*10.+cos(p.z*20.)))-.01);
-            //vec3 lol = ro - rd;
-            //m1.color += eyp(p.xz*1000.*fwd.xx)*20.;
-
-            //m1.color *= sinbumps(m1.color);
-            //m1.color = vec2( length(m1.color.xz) - .01, m1.color.y).xyy;
-            m1.reflection_ratio = 10.01;
-            m1.shininess = 30.;
+        if (sclera(p, vec3(0.,.9,.0), 1.) < eps) {
+            m1.color = vec3(1.)*2.5;
+            m1.reflection_ratio = 1.01;
+            m1.shininess = 50.;
             s1 = get_shading(m1, l1, p, n, ld, ed);
             color = m1.color * s1.diffuse * s1.shadow/2.;
             color += s1.specular;
@@ -257,12 +224,14 @@ void main() {
             color += m1.color * s1.amb *.2;
         }
 
-        if (iris(p- normalize(ro) - vec3(.0,.65,.0), .4) < eps) {
+        if (iris(p, vec3(0.,.9,.0), 1.) < eps) {
+            float anglex = acos(dot(normalize(roo.xz), normalize(ro.xz)))-radians(48.);
+            float angley = acos(dot(normalize(roo.y), normalize(ro.y)))-radians(23.);
+            vec4 eyeRotation = vec4(cos(anglex), sin(anglex), cos(angley), sin(angley));
+            vec2 oo = ApplyEyeRotation(p, eyeRotation).xy;
             m1.color = vec3(10.1, 0.2, 2.9);
-            m1.color *= eyp((uv+vec2(0.,-.35))*100.)*5.;
-            m1.color *= eyp((uv+vec2(0.,-.35))*10.)*15.;
-
-
+            m1.color *= eyp((oo+vec2(0.,-.35))*100.)*5.;
+            m1.color *= eyp((oo+vec2(0.,-.35))*10.)*15.;
             m1.reflection_ratio = 10.01;
             m1.shininess = 350.;
             s1 = get_shading(m1, l1, p, n, ld, ed);
@@ -272,11 +241,9 @@ void main() {
             color += m1.color * s1.amb *.2;
         }
 
-        if (pupil(p - (ro-lookat)/2. - vec3(0.,.45,.0), .1) < eps) {
+        if (pupil(p, vec3(0.,.9,.0), 1.) < eps) {
             color = vec3(0.);
         }
-
-
     }
 
     // Exponential distance fog
