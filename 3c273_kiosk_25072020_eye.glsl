@@ -89,6 +89,14 @@ vec3 rot(vec3 p, vec3 axis, float angle) {
     return vec3(q.x,q.y,q.z);
 }
 
+vec3 dom_distort_iq(in vec3 q) {
+        q.xyz += 1.000*sin(  2.0*q.xzy )*.2;
+        q.xyz += 0.500*sin(  4.0*q.yzx )*.2;
+        q.xyz += 0.250*sin(  8.0*q.yzx )*.1;
+        q.xyz += 0.050*sin( 26.0*q.zyx )*.3;
+        return q;
+}
+
 float sphere( vec3 p, float r ) {
     return length(p) - r;
 }
@@ -112,6 +120,7 @@ float eye(vec3 p, vec3 c, float r) {
 }
 
 float scene(vec3 p) {
+    p = dom_distort_iq(p);
     vec3 c = vec3(0., 0.9, .0);
     return eye(p, c, 1.);
 }

@@ -195,10 +195,10 @@ material mat,mt1,mt2,mt3,mt4,mt5;
 shading s1,s2,s3;
 
 // precompute various rhytms
-float mov0 = sin(time)+1.0;
-float mov1 = sin(time*5.)+1.0;
+float mov0 = sin(time+1.)+1.0;
+float mov1 = cos(time*5.)+1.0;
 float mov2 = sin(time/2.)+1.0;
-float mov3 = sin(time*20.)+1.0;
+float mov3 = cos(time/4.)+1.0;
 float mov4 = sin(time*50.)+1.0;
 
 float sinbumps(in vec3 p, in float frq) {
@@ -235,6 +235,10 @@ float sphere( vec3 p, float r ) {
     return length(p) - r;
 }
 
+float bumpsphere(in vec3 p, in float frq) {
+    return sphere(p + sinbumps(p, frq), mx31*10.);
+}
+
 float cylinder(vec3 p, float r, float height) {
 	float d = length(p.zy) - r;
 	d = max(d, abs(p.x) - height);
@@ -254,6 +258,7 @@ float bone (in vec3 p) {
 
     return smin(t, smin(smin(s1, s2, 20.), smin(s3, s4, 20.), 1.), 2.5);
 }
+
 float tooth1(in vec3 p) {
     float mov = sin(time*10.)+1.0;
     float x = 0;
@@ -353,39 +358,64 @@ float org1(in vec3 p) {
     return smin(tooth1(p), smin(tooth2(p), tooth3(p), 5*mx16), 5*mx16);
 }
 
-float org2(in vec3 p) {
-    float x = 4.;
-    float y = 6.;
-    float z = 0.;
+// TODO
+// - make sure smin_val is not close to zero when not using / starting
+float org2(in vec3 p, in float xx, in float yy, in float zz, in float rr) {
+    float x = xx;
+    float y = yy;
+    float z = zz;
+    p = rot(p, vec3(0.,0.,1.), rr);
     vec3 pp = p;
+    float smin_val = 0.1 + mx14;
 
-    p = rot(pp, vec3(-.7,0.5,1.), 360. * m1);
-    p.x += sin(pp.y*30.*m3)*.09;
+    p = rot(pp, vec3(-.7,0.5,1.), 90. + 120. * m1);
+    p.x += sin(pp.y*12.*m3)*.09;
     p.z += sin(pp.y*4.)*.1*mov0;
-    float b1 = capsule(p-vec3(x-.4,y+.7-5.*mov0,z+.3), .1, (.6+5.*mov0)*m0);
+    float b1 = capsule(p-vec3(x-.4, y+.7-5.*mov0, z+.3), .1, (.6+5.*mov0)*m1);
 
     p = rot(pp, vec3(1.,0.5,0.), 360. * m1);
-    p.x += sin(pp.y*30.*m3)*.09;
+    p.x += sin(pp.z*14.*m3)*.09;
     p.z += sin(pp.y*4.)*.1*mov0;
-    float b2 = capsule(p-vec3(x-.8,y-3-2.*mov1,z+.3), .1+.1*m2, (.5+2.*mov1)*m0);
+    float b2 = capsule(p-vec3(x-2., y-5-2.*mov1, z+.3), .1+.1*m2, (.5+2.*mov3)*m1);
 
     p = rot(pp, vec3(1.,0.5,0.), 180. * m2);
     p.x += sin(pp.y*7.)*.06;
-    p.z += sin(pp.y*40.*m2)*.1*mov0;
-    float b3 = capsule(p-vec3(x-2.,y-3-2.*mov0,z+.3), .1+.1*m2, (.6+2.*mov0)*m0);
+    p.y += sin(pp.x*9.*m2)*.1*mov0;
+    float b3 = capsule(p-vec3(x-2., y-3-2.*mov0, z+.3), .1+.1*m2, (.6+2.*mov0)*m0);
 
-    p = rot(pp, vec3(0.,1.,0.2), 360. * m3);
-    p.x += sin(pp.y*20.)*.06;
-    p.z += sin(pp.y*15.*m1)*.1*mov0;
-    float s1 = capsule(p-vec3(x-2.,y-3-5.*mov2,z-3.), .1+.1*m2, (.6+5.*mov0)*m0);
+    p = rot(pp, vec3(0.,1.,0.2), 360. * m2);
+    p.x += sin(pp.y*10.)*.06;
+    p.z += sin(pp.y*12.*m1)*.1*mov0;
+    float b4 = capsule(p-vec3(x-2., y-3-5.*mov2, z-3.), .1+.1*m2, (.6+5.*mov0)*m2);
 
-    return smin(smin(min(b1, b2),b3, 1.*mx14), s1, 1.*mx14);
+    p = rot(pp, vec3(1.,0.,.1), 90. * m0);
+    p.x += sin(pp.y*10+5*m1)*.1;
+    p.z += sin(pp.x*6.*m1)*.1*mov0;
+    float b5 = capsule(p-vec3(x+2., y-4.*mov2, z+1.), .15+.1*m2, (.6+5.*mov0)*m2);
+
+    p = rot(pp, vec3(1.,1.,.0), 270. * m1);
+    p.x += sin(pp.y*2+5*m2)*.1*mov0;
+    p.z += sin(pp.y*5.+3*m1)*.3;
+    float b6 = capsule(p-vec3(x-1., y-5.*mov2, z-1.5), .08+.15*m3, .06+(8.*mov0)*m1);
+
+    p = rot(pp, vec3(.0,0.,.1), 90. + m1*45.);
+    p.y += sin(pp.z*2.+5*m0)*.1*mov2;
+    p.z += sin(pp.x*4.+10*m3)*.3;
+    float b7 = capsule(p-vec3(x, y-10*mov3+5., z-1.5), .18+.15*m3, .01+(8.*mov0)*m1);
+
+    return smin(smin(smin(smin(smin(min(b1, b2),b3, smin_val), b4, smin_val), b5, smin_val), b6, smin_val), b7, smin_val);
+}
+
+float org3(in vec3 p) {
+    return min(org2(p, 4.,6.,0., 0.), org2(p, 6., -5., -3., 180.));
 }
 
 float scene(vec3 p) {
     //return min(tooth1(p), min (tooth2(p), tooth3(p)));
-    return org2(p);
+    //return org2(p, 4.,6.,0.,0.);
+    //return org3(p);
     //return min(org1(p), org2(p));
+    return bumpsphere(p, 20*mx41);
 
 }
 
@@ -408,6 +438,11 @@ vec3 str(in float xp, in float yp, in float x, in float y, in vec3 c, in vec3 co
         return cl;
 }
 
+vec3 str_a(in float xp, in float yp, in float x, in float y, in vec3 col) {
+        vec3 cl = ((p2.x > xp-x*.51) && (p2.x < x*.51+xp) && (p2.y > yp-y*.51) && (p2.y < y*.51+yp)) ? col : vec3(0.0);
+        return cl;
+}
+
 // Feedback
 vec3 feedb_sqr(in float xpos, in float ypos, in float xsiz, in float ysiz, in float bsiz, in vec3 c) {
     vec3 ccc = texture2D(backbuffer, (vec2(p2.x,p2.y)-0.51)*bsiz*1.5+0.51).xyz;
@@ -427,6 +462,12 @@ vec3 int_feedback(in vec3 p, in float xpos, in float ypos, in float xsiz, in flo
 	return c;
 }
 
+// multi feedback
+vec3 multi_feedback(in float xpos, in float ypos, in float xsiz, in float ysiz, in float bsiz) {
+    vec3 texture = texture2D(backbuffer, (vec2(1.-p2.x,p2.y)-0.5)*bsiz+0.5).xyz;
+	return str_a(xpos, ypos, xsiz, ysiz, texture);
+}
+
 shading get_shading(material m, light l, vec3 p, vec3 n, vec3 ld, vec3 ed) {
     shading s;
     float step;
@@ -444,7 +485,7 @@ shading get_shading(material m, light l, vec3 p, vec3 n, vec3 ld, vec3 ed) {
 }
 
 void main() {
-    float orbit = 7.;
+    float orbit = 20.*mx91;
     vec3 ro = vec3(cos(time/4.)*orbit, 2., sin(time/4.)*orbit); // ray origin, here also known as 'eye'
     //ro = vec3(0.,1.8,-8.);
     vec3 lookat = vec3(-0.9, 0.,0.);
@@ -458,27 +499,27 @@ void main() {
     // enviroment
     l1.color = vec3(1.,1.,1.);
     l1.position = vec3(sin(time/4.)*4.,2.5,cos(time/4.)*3.);
-    color = vec3(.0);
+    color = vec3(.2);
     sky = color;
     glow = color;
 
     // raymarch a scene
-    float step = 1.;
+    float dstep = 1.;
     float d = 1.;
     vec3 p;
     for (int i = 0; i < MAXSTEPS; i++) {
-        if( (d<eps) || (step > MAXDIST) ) break;
-        p = ro+rd*step;
+        if( (d<eps) || (dstep > MAXDIST) ) break;
+        p = ro+rd*dstep;
         d = scene( p );
-        step += d;
+        dstep += d;
 
         // red glow
         glow = vec3(float(i)/float(MAXSTEPS),0.,0.);
     }
-    if( step>MAXDIST ) step=-1.;
+    if (dstep>MAXDIST) dstep=-1.;
 
     // apply materials
-    if (step > 0.) {
+    if (dstep > 0.) {
         // precompute stuff
         vec3 n = normal(p);
         vec3 ld = normalize(l1.position-p);
@@ -512,7 +553,19 @@ void main() {
         mt4.reflection_ratio = .01;
         mt4.shininess = 0.;
 
-        if (org2(p) < eps) {
+        // texture on the surface of the bumpshere
+        if (bumpsphere(p, 50.) < eps) {
+            mt5.color = vec3(5.,.1,.1);
+            mt5.reflection_ratio = 1.9;
+            mt5.shininess = 30.;
+            s1 = get_shading(mt5, l1, p, n, ld, ed);
+            color = mt5.color * s1.diffuse * s1.shadow/2.;
+            color += s1.specular;
+            color *= s1.aoc;
+            color += mt5.color * s1.amb *.2;
+        }
+
+        if (org3(p) < eps) {
             mat = mt3;
             s1 = get_shading(mat, l1, p, n, ld, ed);
             color = mat.color * s1.diffuse * s1.shadow/.5;
@@ -520,7 +573,7 @@ void main() {
             color += mat.color * s1.amb *.2;
         }
 
-        if (org1(p) < eps*20.) {
+/*        if (org1(p) < eps*20.) {
             if (mx12 == 0.) {
                 mat = mt1;
             }
@@ -538,7 +591,7 @@ void main() {
             color += s1.specular;
             color += mat.color * s1.amb *.2;
         }
-
+*/
         if (tooth1(p) < eps*20.) {
             if (mx13 < 1.) {
                 mat = mt1;
@@ -571,11 +624,13 @@ void main() {
     }
 
     // Exponential distance fog
-    //color = mix(color, 0.8 * sky, 1.0 - exp2(-0.010 * step * step));
+    color = mix(color, 0.2 * sky, 1. - exp2(-0.015 * dstep * dstep));
 
-    // feedback normal
+    // set coords for feedback
     float asp = resolution.x / resolution.y;
     p2 = gl_FragCoord.xy / resolution;
+
+    // feedback normal
     if (nkk11 > 0.) {
         color += feedb_sqr(.5, .5, 1., 1., mx74, color)*mx71*1.1;
     }
@@ -583,6 +638,14 @@ void main() {
     // feedback internal
     if (nkk12 > 0.) {
         color -= int_feedback(p, .0, .0, 20., 20., mx76*.05, color)*mx75*10.;
+    }
+
+    // multiple feedback fields
+    if (nkk10 > 0.) {
+        for (int i=0; i < 50; i++) {
+            vec3 lol = multi_feedback(cos(i/rand.y)*.5+.5, sin(i)*.5+.5+rand.x-.5, .25, .25, mx64)*mx61*1.9;
+            color += lol*lol*lol*lol;
+        }
     }
 
     // gamma correction
@@ -593,9 +656,18 @@ void main() {
 
     // strobe
     if (nkk1 > 0.) {
-        color += cnt(100);
+        color += step(cnt(100), .3);
     }
 
+    if (nkk2 > 0.) {
+        color += step(cnt(500), .1);
+    }
+
+    if (nkk3 > 0.) {
+        color += step(cnt(1000), .05);
+    }
+
+
     // send to screen
-    PixelColor = vec4(color, 1.);
+    PixelColor = vec4(color, 1.)*mx81;
 }
