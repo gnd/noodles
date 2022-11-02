@@ -237,8 +237,10 @@ vec3 rot( vec3 p, mat4 m )
     return vec3(q.x,q.y,q.z);
 }
 
-float opS( float d1, float d2 )
-{
+// weird rotate seen on shadertoy
+// #define R(p, a) p=cos(a)*p+sin(a)*vec2(p.y, -p.x)
+
+float opS( float d1, float d2 ) {
     return max(-d2,d1);
 }
 

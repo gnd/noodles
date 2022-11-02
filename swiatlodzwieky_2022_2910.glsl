@@ -3,7 +3,7 @@ out vec4 PixelColor;
 uniform vec2 resolution;
 uniform float time;
 uniform sampler2D backbuffer;
-vec2 p2;
+#define AA // comment out to turn of anti-aliasing
 
 // PARAMS
 uniform float m0;
@@ -23,7 +23,7 @@ float mx13 = m7/127.;
 float mx14 = m8/127.;
 float mx15 = m9/127.;
 float mx16 = m10/127.;
-float mx21 = m11/127.;
+float mx21 = m11/12.7;
 float mx22 = m12/127.;
 float mx23 = m13/127.;
 float mx24 = m14/127.;
@@ -72,10 +72,11 @@ float mx94 = m56/127.;
 ///////////////// END OF MIDIMIX ////////////////////
 
 
-#define MAXSTEPS 256
+#define MAXSTEPS 64
 #define MAXDIST 12
-#define eps 0.00001
+#define eps 0.005
 
+struct march { float step; vec3 ro; vec3 rd; };
 struct light { vec3 position; vec3 color; };
 struct material { vec3 color; float reflection_ratio; float shininess; };
 struct shading { float diffuse; float specular; float shadow; float aoc; float amb; };
@@ -83,13 +84,28 @@ struct shading { float diffuse; float specular; float shadow; float aoc; float a
 light l1;
 material mt1,mt2,mt3;
 shading s1,s2,s3;
+vec2 p2;
+
+bool reflected = false;
+bool refracted = false;
+
+float bumpsize = mx11*10.;
+float bumpsize2 = mx14*10. + m0/10.; //mx14*10.;
+float t = time * mx91;
 
 vec3 sky, color; // 'sky color'
 vec3 cr = vec3(1.,0.,0.);
 
+// Counter 0 to 1
+float cnt(in int m)
+{
+    float divider = 1000.0 / float(m)*10.0;
+    return mod(time*divider, 10.0) / 10.0;
+}
+
 // Sinusoid bumps
 float sinbumps(in vec3 p, in float frq) {
-    return sin(p.x*frq) * sin(p.y*frq+time*4.) * sin(p.z*frq) * .17;
+    return sin(p.x*frq) * sin(p.y*frq+t) * sin(p.z*frq) * .5;
 }
 
 float smin( float a, float b, float k ) {
@@ -122,6 +138,11 @@ float iterbox_(vec3 p) {
         );
     }
     return res;
+}
+
+// Sphere field
+float sphere(in vec3 p, in vec3 centerPos, float radius) {
+        return length(p-centerPos) - radius;
 }
 
 float iterbox(vec3 p) {
@@ -158,63 +179,68 @@ float ssub( float d1, float d2, float k ) {
 
 #define R(p, a) p=cos(a)*p+sin(a)*vec2(p.y, -p.x)
 
-float fract2(vec3 p) {
-    
-/*
-    float kk = 10.0*mx21; // or some other amount
-    float cc = cos(kk*p.y);
-    float ss = sin(kk*p.y);
-    mat2  mm = mat2(cc,-ss,ss,cc);
-    p = vec3(mm*p.xz,p.y); */
+float object2(vec3 p) {
+    vec3 pp = p;
 
-    // i = 0
-    //p = vec3(R(p.xy, mx11*2.), p.z);
-    //p = vec3(p.x, R(p.yz, mx11*2.));
-    vec2 xz = R(p.xz, mx11*2.);
-    p = vec3(xz.x, p.y, xz.y);
-    float d = sdCross_smooth(p);
+    // bend
+    float k = mx31*10.; // or some other amount
+    float c = cos(k*p.x);
+    float s = sin(k*p.x);
+    mat2 m = mat2(c,-s,s,c);
+    p = vec3(m*p.xy,p.z);
 
-    // i = 1
-    float s = 3.0;
-    float c = 0.5;
-    vec3 l = vec3(4.,1.,4.);
-    p = p-c*clamp(round(vec3(R(p.xy, mx11*2.), p.z)/c),-l,l);
-    d = min(d, sdCross_smooth(p*s)/s);
-
-    // i = 2
-    s *= 3;
-    c = 1.;
-    l = vec3(4.,1.,4.);
+    // domain repeat
+    c = 0.1;
+    vec3 l = vec3(3.,0.,0.);
     p = p-c*clamp(round(p/c),-l,l);
-    d = min(d, sdCross_smooth(p*s)/s);
+    float d = cbox(p, vec3(0.01,1.,0.01));
 
-    float disp = mx31*10.;
-    float pd = sin(disp*p.x)*sin(disp*p.y)*sin(disp*p.z);
-    
-    return d+pd;
-}
+    // warped sphere
+    p = pp;
+    p = vec3(p.x, p.y*3.0, p.z); 
+    d = smin(d, sphere(p, vec3(0.), .3), 10.);
 
-float fract(vec3 p) {
-    float d = box(p);
-    float s = 1.;
-    for( int m=0; m<4; m++ ) {
-        vec3 a = mod( p*s, 2.0 )-1.0;
-        s *= 3.0;
-        vec3 r = 1.0 - 3.0*abs(a);
-
-        float c = sdCross(r)/s;
-        d = max(d,c);
-    }
     return d;
 }
 
-float scene(vec3 p) {
-    return fract2(p);
+float object(vec3 p, float bumps) {
+    // rotate along the Y axis
+    vec2 xz = R(p.xz, time);
+    p = vec3(xz.x, p.y, xz.y);
 
-    //min (
-      //          fract(p),
-          //      plane(p) 
-        //        );
+    float thick = mx31;
+    float d = cbox(p, vec3(1.,thick,1.)) + bumps;
+    float e = cbox(p, vec3(thick,1.,1.)) + bumps;
+    float f = cbox(p, vec3(1.,1.,thick)) + bumps;
+
+    return min(min(d,e),f);
+}
+
+float hollow_sphere(vec3 p, float bumps) {
+    float size = mx61 * 20. + m1/10.;
+    float d = sphere(p, vec3(0.), size) + bumps -.7;
+    float c = sphere(p, vec3(0.), size - .1)+ bumps -.7;
+    return max(d,-c);
+}
+
+float cyl(vec3 p, vec3 c) {
+  return length(p.xy-c.xy)-c.z;
+}
+
+float cylinder(vec3 p) {
+    float diameter = 4.;
+    float c = cyl(p, vec3(0.,2.,diameter));
+    float d = cyl(p, vec3(0.,2.,diameter));
+    return max(c, -d);
+}
+
+float scene(vec3 p) {
+    float bumps = sinbumps(p, bumpsize);
+    float bumps2 = sinbumps(p, bumpsize2);
+
+    float d =  object(p*mx21, bumps2)/mx21;
+    float c = cylinder(p);
+    return min(c, min(hollow_sphere(p, bumps), d));
 }
 
 // taken from http://iquilezles.org/www/articles/normalsSDF/normalsSDF.htm
@@ -249,6 +275,49 @@ vec3 pal( in float t, in vec3 a, in vec3 b, in vec3 c, in vec3 d ) {
 
 vec3 spectrum(float n) {
     return pal( n, vec3(0.5,0.5,0.5),vec3(0.5,0.5,0.5),vec3(1.0,1.0,1.0),vec3(0.0,0.33,0.67) );
+}
+
+march refraction(vec3 p, vec3 rd, float eta) {
+    // Glass becomes a 'portal' through which refracted rays keep on raymarching
+    march march;
+    vec3 n = normal(p);
+    march.ro = p;
+    march.rd = normalize(refract(rd, n, eta));
+    march.step = 0.0;
+    for (int j=0; j < MAXSTEPS; j++) {
+        p = march.ro + march.rd * march.step;
+        float d = scene(p);
+        march.step += max(abs(d),eps);
+        if (d > eps) {
+            // attenuate due to impurities, etc
+            color *= .1;
+            // second refraction
+            march.ro = p;
+            // lower means more pure
+            float glass_purity = 0.47;
+            march.rd = normalize(refract(march.rd, -normal(p), 1./eta*glass_purity));
+            color = vec3(0.,0.,1.);
+            break;
+        }
+    }
+    return march;
+}
+
+march reflection(vec3 p, vec3 light_dir) {
+    march march;
+    vec3 n = normal(p);
+    march.ro = p;
+    march.rd = normalize(reflect(-light_dir, n));
+    march.step = 0.0025;
+    for (int j=0; j < MAXSTEPS; j++) {
+        p = march.ro + march.rd * march.step;
+        float d = scene(p);
+        march.step += max(abs(d),eps);
+        if (d > eps) {
+            break;
+        }
+    }
+    return march;
 }
 
 shading get_shading(material m, light l, vec3 p, vec3 n, vec3 ld, vec3 ed) {
@@ -296,9 +365,11 @@ vec3 feedb_sqr(in float xpos, in float ypos, in float xsiz, in float ysiz, in fl
 }
 
 void main() {
-    vec3 ro = vec3(3., 2.5, 3.);
-    ro = vec3(cos(time/4.)*2., 1., sin(time/4.)*2.);
+    vec3 ro = vec3(0.,.5, 5.);
+    //ro = vec3(cos(t/4.)*20.*mx81, 1.5, sin(t/4.)*20.*mx81);
+    //ro = vec3(0.,0.,0.);
     vec3 lookat = vec3(0.,0.,0.);
+    //vec3 lookat = vec3(cos(time/4.)*2.,sin(time/10.),sin(time/4.)*2.);
     vec3 fwd = normalize(lookat-ro);
     vec3 right = normalize(vec3(fwd.z, 0., -fwd.x));
     vec3 up = normalize(cross(fwd, right));
@@ -309,16 +380,29 @@ void main() {
     // enviroment
     l1.color = vec3(1.,1.,1.);
     l1.position = vec3(sin(time/4.)*4.,2.5,cos(time/4.)*3.);
-    sky = vec3(.0);
+    sky = vec3(0.0);
     color = sky;
 
     // raymarch a scene
     float step = .0;
-    vec3 p;
+    vec3 p, p_refr, p_refl;
+    float eta;
     for (int i = 0; i < MAXSTEPS; ++i) {
         p = rd * step + ro;
         float d = scene(p);
         if (d > MAXDIST) {
+            if (refracted) {
+                mt1.color = vec3(1.,1.,1.);
+                mt1.reflection_ratio = 10.9;
+                mt1.shininess = 100.9;
+                vec3 n = normal(p);
+                s1 = get_shading(mt1, l1, p, n, p_refr, ro);
+                color += s1.specular*10.;
+            }
+            if (reflected) {
+                // attenuate sky color
+                color *= 0.1;
+            }
             break;
         }
         if (d < eps) {
@@ -326,48 +410,55 @@ void main() {
             vec3 n = normal(p);
             vec3 ld = normalize(l1.position-p);
             vec3 ed = normalize(ro-p);
+            float bumps = sinbumps(p, bumpsize);
+            float bumps2 = sinbumps(p, bumpsize2);
             
-            if (fract(p) < eps) {
-                mt1.color = vec3(0.,1.,0.);
-                mt1.reflection_ratio = 5.;
-                mt1.shininess = 8.;
-                s1 = get_shading(mt1, l1, p, n, ld, ed);
-                color = mt1.color * s1.diffuse * s1.shadow/2.;
-                color += s1.specular;
-                color += mt1.color * s1.amb *.2;
-                if (n.x > 0.5) {
-                    color+=vec3(1.,0.,p.z);
-                } else {
-                    color+=vec3(0.,p.y,1.);
+            if (object(p*mx21, bumps2)/mx21 < eps) {
+                // Compute refraction
+                    p_refr = p;
+                    refracted = true;
+                    eta = 1./2.22;
+                    march march = refraction(p, rd, eta);
+                    step = march.step;
+                    rd = march.rd;
+                    ro = march.ro;
+                    color = vec3(0.,0.,0.);
+            } else {
+                
+                if (hollow_sphere(p, bumps) < eps) {
+                    vec3 perturb = sin(p * 10.);
+                    mt1.color = spectrum( dot(perturb * .05 + n, ro) * 2.);
+                    s1 = get_shading(mt1, l1, p, n, ld, ed);
+                    color = 0.1 - mt1.color;
+                    color += clamp(.7 * pow(dot(normalize(reflect(-ld, n)), ed), 7.), .0, 1.);
+                    color = pow( color, vec3(1.0/20.2) );
                 }
+                if (cylinder(p) < eps) {
+                    mt1.color = vec3(1.,0.,0.);
+                    s1 = get_shading(mt1, l1, p, n, ld, ed);
+                    color = 0.1 - mt1.color;
+                    color += clamp(.7 * pow(dot(normalize(reflect(-ld, n)), ed), 7.), .0, 1.);
+                    color = pow( color, vec3(1.0/20.2) );
+                }
+                if (refracted) {
+                    mt1.color = vec3(10.,10.,1.);
+                    mt1.reflection_ratio = 10.9;
+                    mt1.shininess = 100.9;
+                    s1 = get_shading(mt1, l1, p, n, p_refr, ro);
+                    color += s1.specular*10.;
+                }
+                if (reflected) {
+                    // attenuate reflected color
+                    color *= 0.8;
+                }
+                 break;
             }
 
-            if (fract2(p) < eps) {
-                mt1.color = vec3(0.,1.,0.);
-                mt1.reflection_ratio = 5.;
-                mt1.shininess = 8.;
-                s1 = get_shading(mt1, l1, p, n, ld, ed);
-                color = mt1.color * s1.diffuse * s1.shadow/2.;
-                color += s1.specular;
-                color += mt1.color * s1.amb *.2;
-                if (n.x > 0.5) {
-                    color+=vec3(1.,0.,p.z);
-                } else {
-                    color+=vec3(0.,p.y,1.);
-                }
-            }
 
-                    
-            /*if (plane(p) < eps) {
-                m1.color = vec3(mod(floor(p.x)+floor(p.z)-.5, 2.0));
-                m1.reflection_ratio = 0.01;
-                m1.shininess = 3.;
-                s1 = get_shading(m1, l1, p, n, ld, ed);
-                color = m1.color * s1.diffuse * s1.shadow/2.;
-                color += s1.specular;
-                color += m1.color * s1.amb *.2;
-            }*/
-            break;
+            
+
+            
+           
         }
         step += d;
     }
@@ -378,16 +469,19 @@ void main() {
     // gamma correction
     color = pow( color, vec3(1.0/2.2) );
 
-    // send to screen
-    PixelColor = vec4(color, 1.);
+    // Strobe
+    //PixelColor += cnt(100);
 
     // set coords for feedback
     float asp = resolution.x / resolution.y;
     p2 = gl_FragCoord.xy / resolution;
 
     // feedback normal
-//    if (mx72 > 0.) {
-        vec3 col = feedb_sqr(.5, .5, 1., 1., mx74, PixelColor.xyz)*mx71*1.1;
-        PixelColor += vec4(col, 1.);
-  //  }
+    if (mx72 > 0.) {
+        vec3 col = feedb_sqr(.5, .5, 1., 1., mx74, color.xyz)*mx71*1.1;
+        color += col;
+    }
+
+
+    PixelColor = vec4(color, 1.0);
 }
