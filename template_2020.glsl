@@ -6,12 +6,78 @@ uniform float time;
 #define MAXDIST 20.0
 #define eps 0.0001
 
+// PARAMS
+uniform float m0;
+uniform float m1;
+uniform float m2;
+uniform float m3;
+uniform float m4;
+
+/////////////////// MIDIMIX //////////////////////
+uniform float m5,m6,m7,m8,m9,m10;
+uniform float m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30;
+uniform float m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48,m49,m50;
+uniform float m51,m52,m53,m54,m55,m56,m57,m58,m59;
+float mx11 = m5/127.;
+float mx12 = m6/127.;
+float mx13 = m7/127.;
+float mx14 = m8/127.;
+float mx15 = m9/127.;
+float mx16 = m10/127.;
+float mx21 = m11/127.;
+float mx22 = m12/127.;
+float mx23 = m13/127.;
+float mx24 = m14/127.;
+float mx25 = m15/127.;
+float mx26 = m16/127.;
+float mx31 = m17/127.;
+float mx32 = m18/127.;
+float mx33 = m19/127.;
+float mx34 = m20/127.;
+float mx35 = m21/127.;
+float mx36 = m22/127.;
+float mx41 = m23/127.;
+float mx42 = m24/127.;
+float mx43 = m25/127.;
+float mx44 = m26/127.;
+float mx45 = m27/127.;
+float mx46 = m28/127.;
+float mx51 = m29/127.;
+float mx52 = m30/127.;
+float mx53 = m31/127.;
+float mx54 = m32/127.;
+float mx55 = m33/127.;
+float mx56 = m34/127.;
+float mx61 = m35/127.;
+float mx62 = m36/127.;
+float mx63 = m37/127.;
+float mx64 = m38/127.;
+float mx65 = m39/127.;
+float mx66 = m40/127.;
+float mx71 = m41/127.;
+float mx72 = m42/127.;
+float mx73 = m43/127.;
+float mx74 = m44/127.;
+float mx75 = m45/127.;
+float mx76 = m46/127.;
+float mx81 = m47/127.;
+float mx82 = m48/127.;
+float mx83 = m49/127.;
+float mx84 = m50/127.;
+float mx85 = m51/127.;
+float mx86 = m52/127.;
+float mx91 = m53/127.;
+float mx92 = m54/127.;
+float mx93 = m55/127.;
+float mx94 = m56/127.;
+///////////////// END OF MIDIMIX ////////////////////
+
 struct light { vec3 position; vec3 color; };
 struct material { vec3 color; float reflection_ratio; float shininess; };
 struct shading { float diffuse; float specular; float shadow; float aoc; float amb; };
 
 light l1;
-material m1;
+material mt1;
 shading s1;
 
 vec3 sky, color; // 'sky color'

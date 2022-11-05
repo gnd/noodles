@@ -3,9 +3,9 @@ out vec4 PixelColor;
 uniform vec2 resolution;
 uniform float time;
 uniform sampler2D backbuffer;
-#define MAXSTEPS 128
-#define MAXDIST 20.0
-#define eps 0.0001
+#define MAXSTEPS 96
+#define MAXDIST 12.0
+#define eps 0.001
 //#define AA // comment out to turn of anti-aliasing
 
 /* with AA one frame takes cca 190ms on geforce 940M
@@ -20,13 +20,52 @@ bool reflected = false;
 bool refracted = false;
 
 light l1;
-material mt1,m2;
+material m1,m2;
 shading s1,s2;
 
 vec3 color; // 'sky color'
 
 float sphere( vec3 p, float r ) {
     return length(p) - r;
+}
+
+// Random number generator
+float rnd(vec2 co){
+        // implementation found at: lumina.sourceforge.net/Tutorials/Noise.html
+        float k = sin(dot(co.xy ,vec2(12.9898,78.233)));
+        return fract(k + k);
+}
+
+float noise( in vec3 p )
+{
+        vec2 ip = vec2(floor(p.xy));
+        vec2 u = fract(p.xy);
+        // http://www.iquilezles.org/www/articles/morenoise/morenoise.htm
+        //u = u*u;
+        u = u*u*u*((6.0*u-15.0)*u+10.0);
+
+        float res = mix(
+                                        mix(rnd(ip), rnd(ip+vec2(1.0,0.0)), u.x),
+                                        mix(rnd(ip+vec2(0.0,1.0)), rnd(ip+vec2(1.0,1.0)), u.x),
+                                        u.y);
+
+        //return res - 0.25;
+        return 2.0* (res-0.5);
+}
+
+float fbm( vec3 x, float h )
+{    
+    float G = exp2(-h);
+    float f = 1.0;
+    float a = 1.0;
+    float t = 0.0;
+    for( int i=0; i<6; i++ )
+    {
+        t += a*noise(f*x);
+        f *= 2.0;
+        a *= G;
+    }
+    return t;
 }
 
 float maxcomp(in vec3 p ) {
@@ -39,7 +78,9 @@ float box(vec3 p, vec3 b, float r) {
 }
 
 float neon_sphere(vec3 p) {
-    return sphere(p - vec3(0., 2., 0.), .4);
+    float c = sphere(p - vec3(0., 1., 0.), .4);
+    float d = fbm(p, time/500.);
+    return c+d;
 }
 
 float glass_sphere(vec3 p) {
@@ -69,9 +110,16 @@ float mirror(vec3 p) {
 }
 
 float plane(vec3 p) {
-    float height = .5;
+     // bend
+    float k = .2; // or some other amount
+    float c = cos(k*p.x);
+    float s = sin(k*p.x);
+    mat2 m = mat2(c,-s,s,c);
+    p = vec3(m*p.xy,p.z) + fbm(p, 4.);
+
+    float height = 2.5;
     float width = 15.;
-    return box(p-vec3(.0,-1.*height,.0), vec3(width,.01,width), .0);
+    return box(p-vec3(.0,-1.*height,.0), vec3(width,.5,width), .0);
 }
 
 float scene(vec3 p) {
@@ -205,7 +253,7 @@ shading get_shading(material m, light l, vec3 p, vec3 eye) {
 vec3 draw(in vec2 fragcoord) {
     vec3 eye = vec3(cos(time/4.)*3., 2., sin(time/4.)*3.);
     //eye = vec3(0.8,2., -2.);
-    vec3 lookat = vec3(0.,0.,0.);
+    vec3 lookat = vec3(0.,2.,0.);
     vec3 fwd = normalize(lookat-eye);
     vec3 right = normalize(vec3(fwd.z, 0., -fwd.x ));
     vec3 up = normalize(cross(fwd, right));
@@ -232,10 +280,10 @@ vec3 draw(in vec2 fragcoord) {
         float d = scene(p);
         if (d > MAXDIST) {
             if (refracted) {
-                mt1.color = vec3(0.,0.,1.);
-                mt1.reflection_ratio = 10.9;
-                mt1.shininess = 100.9;
-                s1 = get_shading(mt1, l1, p_refr, eye);
+                m1.color = vec3(0.,0.,1.);
+                m1.reflection_ratio = 10.9;
+                m1.shininess = 100.9;
+                s1 = get_shading(m1, l1, p_refr, eye);
                 color += s1.specular*10.;
             }
             if (reflected) {
@@ -267,66 +315,66 @@ vec3 draw(in vec2 fragcoord) {
                 }
             } else {
                 if (neon_sphere(p) == scene(p)) {
-                    mt1.color = vec3(1.,1.,.0);
-                    mt1.reflection_ratio = .9;
-                    mt1.shininess = 15.9;
-                    s1 = get_shading(mt1, l1, p, eye);
+                    m1.color = vec3(1.,1.,.0);
+                    m1.reflection_ratio = .9;
+                    m1.shininess = 15.9;
+                    s1 = get_shading(m1, l1, p, eye);
                     // check https://www.shadertoy.com/view/lsKcDD
-                    color = mt1.color * s1.diffuse * s1.shadow;
+                    color = m1.color * s1.diffuse * s1.shadow;
                     color += s1.specular;
                     color *= s1.aoc;
-                    color += mt1.color * s1.amb *.09;
+                    color += m1.color * s1.amb *.09;
                 }
                 if (red_cube(p) == scene(p)) {
-                    mt1.color = vec3(1.,0.,0.);
-                    mt1.reflection_ratio = .2;
-                    mt1.shininess = 10.9;
-                    s1 = get_shading(mt1, l1, p, eye);
+                    m1.color = vec3(1.,0.,0.);
+                    m1.reflection_ratio = .2;
+                    m1.shininess = 10.9;
+                    s1 = get_shading(m1, l1, p, eye);
                     // check https://www.shadertoy.com/view/lsKcDD
-                    color = mt1.color * s1.diffuse * s1.shadow;
+                    color = m1.color * s1.diffuse * s1.shadow;
                     color += s1.specular;
                     color *= s1.aoc;
-                    color += mt1.color * s1.amb *.09;
+                    color += m1.color * s1.amb *.09;
                 }
                 if (blue_cube(p) == scene(p)) {
-                    mt1.color = vec3(0.,0.07,1.);
-                    mt1.reflection_ratio = .2;
-                    mt1.shininess = 10.9;
-                    s1 = get_shading(mt1, l1, p, eye);
+                    m1.color = vec3(0.,0.07,1.);
+                    m1.reflection_ratio = .2;
+                    m1.shininess = 10.9;
+                    s1 = get_shading(m1, l1, p, eye);
                     // check https://www.shadertoy.com/view/lsKcDD
-                    color = mt1.color * s1.diffuse * s1.shadow * 1.2;
+                    color = m1.color * s1.diffuse * s1.shadow * 1.2;
                     color += s1.specular;
                     color *= s1.aoc;
-                    color += mt1.color * s1.amb *.3;
+                    color += m1.color * s1.amb *.3;
                 }
                 if (green_cube(p) == scene(p)) {
-                    mt1.color = vec3(0.,1.,0.);
-                    mt1.reflection_ratio = .2;
-                    mt1.shininess = 10.9;
-                    s1 = get_shading(mt1, l1, p, eye);
+                    m1.color = vec3(0.,1.,0.);
+                    m1.reflection_ratio = .2;
+                    m1.shininess = 10.9;
+                    s1 = get_shading(m1, l1, p, eye);
                     // check https://www.shadertoy.com/view/lsKcDD
-                    color = mt1.color * s1.diffuse * s1.shadow;
+                    color = m1.color * s1.diffuse * s1.shadow;
                     color += s1.specular;
                     color *= s1.aoc;
-                    color += mt1.color * s1.amb *.09;
+                    color += m1.color * s1.amb *.09;
                 }
                 if (plane(p) == scene(p)) {
                     float checker = mod(floor(p.x)+floor(p.z)-.5, 2.0);
-                    mt1.color = vec3(checker);
-                    mt1.reflection_ratio = 0.01;
-                    mt1.shininess = 3.;
-                    s1 = get_shading(mt1, l1, p, eye);
+                    m1.color = vec3(checker);
+                    m1.reflection_ratio = 0.01;
+                    m1.shininess = 3.;
+                    s1 = get_shading(m1, l1, p, eye);
                     // check https://www.shadertoy.com/view/lsKcDD
-                    color = mt1.color * s1.diffuse * s1.shadow;
+                    color = m1.color * s1.diffuse * s1.shadow;
                     color += s1.specular;
                     color *= s1.aoc;
-                    color += mt1.color * s1.amb *.09;
+                    color += m1.color * s1.amb *.09;
                 }
                 if (refracted) {
-                    mt1.color = vec3(0.,0.,1.);
-                    mt1.reflection_ratio = 10.9;
-                    mt1.shininess = 100.9;
-                    s1 = get_shading(mt1, l1, p_refr, eye);
+                    m1.color = vec3(0.,0.,1.);
+                    m1.reflection_ratio = 10.9;
+                    m1.shininess = 100.9;
+                    s1 = get_shading(m1, l1, p_refr, eye);
                     color += s1.specular*10.;
                 }
                 if (reflected) {
